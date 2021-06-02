@@ -46,5 +46,12 @@
 <p><output id="stdout"></output></p>
 <p><output id="trans"></output></p>
 
+<script type="module">
+  import Bowser from "https://unpkg.com/bowser?module";
+
+  if (Bowser.getParser(globalThis.navigator.userAgent).getBrowserName() !== Bowser.BROWSER_MAP.chrome)
+    document.body.innerHTML = "<p>Google Chrome 以外のブラウザでは利用できません。";
+</script>
+
 <script src="https://unpkg.com/obs-websocket-js/dist/obs-websocket.min.js"></script>
 <script src="./index.js"></script>
