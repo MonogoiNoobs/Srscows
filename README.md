@@ -1,6 +1,6 @@
 <p align="center">
   ●以下URLをクリック！●<br>
-  <a href="https://monogoinoobs.github.io/Srscows/">https://monogoinoobs.github.io/Srscows/
+  <a href="https://monogoinoobs.github.io/Srscows/">https://monogoinoobs.github.io/Srscows/</a>
 </p>
 
 # 必要なもの
