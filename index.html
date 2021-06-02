@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ja">
+<meta charset="utf-8">
+
+<title>Srscows - Speech-recognition-subtitle-chan w/ OBS WebSocket</title>
+
+<link rel="license" href="https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html" title="GPL-2.0">
+<meta name="author" content="MonogoiNoobs">
+<link rel="author" href="mailto:62567343+MonogoiNoobs@users.noreply.github.com">
+
+<style>
+  .gas {
+    display: none;
+  }
+
+  #isTranslation:checked+.gas {
+    display: block;
+  }
+
+  .gas label {
+    display: block;
+  }
+</style>
+
+<form id="main">
+  <fieldset id="field">
+    <legend>音声認識字幕ちゃん (OBS WebSocket 版)</legend>
+    <p><label>ポート番号: <input type="number" value="4444" id="port" min="0" required></label></p>
+    <p><label>パスワード: <input type="password" id="pass" placeholder="未設定の場合は無記入"></label></p>
+    <p><label>字幕ソース: <input type="text" id="src" value="sub_ja" required></label></p>
+    <p><label>字幕が消えるまでの秒数(ミリ秒、0 で永続): <input type="number" min="0" id="fadetime" value="5000"></label></p>
+    <p><label>テキストの種類: <select id="type">
+          <option value="GDIPlus" selected>GDI+</option>
+          <option value="Freetype2">FreeType 2</option>
+        </select></label></p>
+    <p><label for="isTranslation">GAS による翻訳を表示する: </label><input type="checkbox" name="isTranslation"
+        id="isTranslation"><span class="gas">
+        <label>翻訳字幕ソース: <input type="text" id="transrc" value="sub_en"></label>
+        <label>字幕が消えるまでの秒数(ミリ秒、0 で永続): <input type="number" min="0" id="transfadetime" value="5000"></label>
+        <label>GAS デプロイ ID: <input type="text" id="gas" size="96" value=""
+            placeholder="作成したスクリプトのデプロイ ID を入力..."></label></span></p>
+    <p><button type="submit" id="submit">接続</button><button type="cancel" id="cancel" disabled>切断</button></p>
+  </fieldset>
+</form>
+
+<p><output id="stdout"></output></p>
+<p><output id="trans"></output></p>
+
+<script src="https://unpkg.com/obs-websocket-js/dist/obs-websocket.min.js"></script>
+<script src="./index.js"></script>
