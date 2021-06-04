@@ -15,11 +15,6 @@ const output = document.querySelector("#stdout");
 const translatedOutput = document.querySelector("#trans");
 const form = document.forms.main.elements;
 
-const digest = async arg => {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(arg));
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
-};
-
 const hashPromise = arg => crypto.subtle.digest("SHA-256", new TextEncoder().encode(arg));
 
 const buftob = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
