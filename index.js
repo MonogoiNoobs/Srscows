@@ -9,6 +9,8 @@ let translatedTimeoutId = null;
 
 let yukarinette = null;
 
+let isRunning = false;
+
 const output = document.querySelector("#stdout");
 const translatedOutput = document.querySelector("#trans");
 const form = document.forms.main.elements;
@@ -19,6 +21,7 @@ const toggleAll = () => {
   }
   form.field.toggleAttribute("disabled");
   if (yukarinette) {
+    form.yukarinettePort.removeAttribute("disabled");
     form.yukarinettePort.setAttribute("disabled", "disabled");
   }
 };
@@ -35,6 +38,9 @@ const submit = event => {
       onerror() {
         document.querySelector("#ykout").textContent = "ゆかりねっととの接続に失敗しました。";
         yukarinette = null;
+        if (!isRunning) {
+          form.yukarinettePort.removeAttribute("disabled");
+        }
       },
     });
   }
@@ -44,6 +50,7 @@ const submit = event => {
     password: form.pass.value,
   })
     .then(() => {
+      isRunning = true;
       output.textContent = "*READY*";
       let isSpeaking = false;
 
@@ -133,6 +140,7 @@ const submit = event => {
       makeRecognition();
     })
     .catch(err => {
+      isRunning = false;
       toggleAll();
       output.textContent = `[ERROR] ${err.error}`;
       if (recog) recog.stop();
@@ -140,6 +148,7 @@ const submit = event => {
 };
 
 const cleanup = () => {
+  isRunning = false;
   obs.send(`SetText${form.type.value}Properties`, {
     source: form.src.value,
     text: "",
