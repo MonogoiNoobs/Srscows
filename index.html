@@ -57,11 +57,18 @@
 <p><output id="trans"></output></p>
 <p><output id="ykout"></output></p>
 
-<script type="module">
-  import Bowser from "https://unpkg.com/bowser?module";
+<script>
+  const isChrome = globalThis.navigator.userAgent.includes("Chrome/")
+    && !(
+      globalThis.navigator.userAgent.includes("Edg/")
+      || globalThis.navigator.userAgent.includes("Mobile")
+      || globalThis.navigator.userAgent.includes("YaBrowser/")
+      || globalThis.navigator.userAgent.includes("Vivaldi/")
+      || globalThis.navigator.userAgent.includes("OPR/")
+      || globalThis.navigator.userAgent.includes("Brave")
+    );
 
-  if (Bowser.getParser(globalThis.navigator.userAgent).getBrowserName() !== Bowser.BROWSER_MAP.chrome)
-    document.body.innerHTML = "<p>Google Chrome 以外のブラウザでは利用できません。";
+  if (!isChrome) document.body.innerHTML = "<p>Google Chrome 以外のブラウザでは利用できません。";
 </script>
 
 <script src="https://unpkg.com/obs-websocket-js/dist/obs-websocket.min.js"></script>
