@@ -44,8 +44,8 @@ const submit = event => {
       onopen() {
         document.querySelector("#ykout").textContent = "ゆかりねっとに接続しました。";
       },
-      onerror(event) {
-        document.querySelector("#ykout").textContent = `ゆかりねっととの接続に失敗しました: ${event.message}`;
+      onerror() {
+        document.querySelector("#ykout").textContent = "ゆかりねっととの接続に失敗しました。";
         yukarinette = null;
         if (!isRunning) {
           form.yukarinettePort.removeAttribute("disabled");
@@ -63,7 +63,7 @@ const submit = event => {
     }));
   };
 
-  obs.onmessage = async event => {
+  obs.onmessage = event => {
     const message = JSON.parse(event.data);
 
     if (message.hasOwnProperty("error")) {
