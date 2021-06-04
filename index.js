@@ -7,6 +7,8 @@ let recog;
 let timeoutId = null;
 let translatedTimeoutId = null;
 
+let yukarinette = null;
+
 const output = document.querySelector("#stdout");
 const translatedOutput = document.querySelector("#trans");
 const form = document.forms.main.elements;
@@ -21,6 +23,18 @@ const toggleAll = () => {
 const submit = event => {
   event.preventDefault();
   toggleAll();
+
+  if (form.hasYukarinette.checked && !!!yukarinette) {
+    yukarinette = Object.assign(new WebSocket(`ws://localhost:${Number(form.yukarinettePort.value)}`), {
+      onopen() {
+        document.querySelector("#ykout").textContent = "ゆかりねっとに接続しました。";
+      },
+      onerror() {
+        document.querySelector("#ykout").textContent = "ゆかりねっととの接続に失敗しました。";
+        yukarinette = null;
+      },
+    });
+  }
 
   obs.connect({
     address: `localhost:${form.port.value}`,
@@ -69,6 +83,8 @@ const submit = event => {
           });
 
           if (!isFinal) return;
+
+          if (form.hasYukarinette.checked && !!yukarinette) yukarinette.send(`0:${latestTranscript}`);
 
           if (form.isTranslation.checked) {
             fetch(`https://script.google.com/macros/s/${form.gas.value}/exec?text=${latestTranscript}&source=ja&target=en`, {
@@ -135,6 +151,7 @@ const cleanup = () => {
   }
   obs.disconnect();
   if (recog) recog.stop();
+  document.querySelector("#ykout").textContent = "";
 };
 
 form.submit.addEventListener("click", submit, false);

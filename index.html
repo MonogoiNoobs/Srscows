@@ -9,7 +9,8 @@
 <link rel="author" href="mailto:62567343+MonogoiNoobs@users.noreply.github.com">
 
 <style>
-  .gas {
+  .gas,
+  .yn {
     display: none;
   }
 
@@ -17,7 +18,12 @@
     display: block;
   }
 
-  .gas label {
+  #hasYukarinette:checked+.yn {
+    display: block;
+  }
+
+  .gas label,
+  .yn label {
     display: block;
   }
 </style>
@@ -39,12 +45,16 @@
         <label>字幕が消えるまでの秒数(ミリ秒、0 で永続): <input type="number" min="0" id="transfadetime" value="5000"></label>
         <label>GAS デプロイ ID: <input type="text" id="gas" size="96" value=""
             placeholder="作成したスクリプトのデプロイ ID を入力..."></label></span></p>
+    <p><label for="hasYukarinette">ゆかりねっとに認識結果を送る: </label><input type="checkbox" name="hasYukarinette"
+        id="hasYukarinette"><span class="yn">
+        <label>ポート番号: <input type="number" id="yukarinettePort" min="0" value="49513"></label></span></p>
     <p><button type="submit" id="submit">接続</button><button type="cancel" id="cancel" disabled>切断</button></p>
   </fieldset>
 </form>
 
 <p><output id="stdout"></output></p>
 <p><output id="trans"></output></p>
+<p><output id="ykout"></output></p>
 
 <script type="module">
   import Bowser from "https://unpkg.com/bowser?module";
