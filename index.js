@@ -1,3 +1,7 @@
+/**
+ * @license 0BSD
+ */
+
 "use strict";
 
 let obs = null;
