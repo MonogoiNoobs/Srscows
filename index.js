@@ -18,6 +18,9 @@ const toggleAll = () => {
     element.toggleAttribute("disabled");
   }
   form.field.toggleAttribute("disabled");
+  if (yukarinette) {
+    form.yukarinettePort.setAttribute("disabled", "disabled");
+  }
 };
 
 const submit = event => {
@@ -151,7 +154,6 @@ const cleanup = () => {
   }
   obs.disconnect();
   if (recog) recog.stop();
-  document.querySelector("#ykout").textContent = "";
 };
 
 form.submit.addEventListener("click", submit, false);
@@ -166,4 +168,5 @@ window.addEventListener("unload", _ => {
   console.log("cleanup");
   cleanup();
   form.field.setAttlibute("disabled");
+  if (yukarinette) yukarinette.close();
 }, false);
