@@ -65,24 +65,24 @@ const submit = event => {
           const latestTranscript = event.results[event.results.length - 1][0].transcript;
           const isFinal = event.results[event.results.length - 1].isFinal;
 
-          if (!(timeoutId || isFinal)) {
-            if (Number(form.fadetime.value)) {
-              globalThis.clearTimeout(timeoutId);
-              timeoutId = null;
-            }
-            if (Number(form.transfadetime.value)) {
-              globalThis.clearTimeout(translatedTimeoutId);
-              translatedTimeoutId = null;
-            }
-          }
+          if (timeoutId) globalThis.clearTimeout(timeoutId);
+          if (translatedTimeoutId) globalThis.clearTimeout(translatedTimeoutId);
 
-          output.textContent = latestTranscript;
+          output.textContent = form.isBracketed.checked ? `<< ${latestTranscript} >>` : latestTranscript;
           obs.send(`SetText${form.type.value}Properties`, {
             source: form.src.value,
-            text: latestTranscript,
+            text: form.isBracketed.checked ? `<< ${latestTranscript} >>` : latestTranscript,
           });
 
           if (!isFinal) return;
+
+          if (form.isBracketed.checked) {
+            output.textContent = latestTranscript;
+            obs.send(`SetText${form.type.value}Properties`, {
+              source: form.src.value,
+              text: latestTranscript,
+            });
+          }
 
           if (form.hasYukarinette.checked && !!yukarinette) yukarinette.send(`0:${latestTranscript}`);
 
