@@ -1,5 +1,5 @@
 /**
- * @license 0BSD
+ * @license MIT-0
  */
 
 "use strict";
