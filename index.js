@@ -14,6 +14,7 @@ let translatedTimeoutId = null;
 let yukarinette = null;
 
 let isRunning = false;
+let isSpeaking = false;
 
 const output = document.querySelector("#stdout");
 const translatedOutput = document.querySelector("#trans");
@@ -33,6 +34,109 @@ const toggleAll = () => {
     form.yukarinettePort.setAttribute("disabled", "disabled");
   }
 };
+
+const makeRecognition = () => {
+  recog = Object.assign(new webkitSpeechRecognition(), {
+    lang: globalThis.navigator.language,
+    interimResults: true,
+    continuous: true,
+  });
+
+  recog.onerror = _ => {
+    if (!isSpeaking) makeRecognition();
+  }
+
+  recog.onsoundend = _ => {
+    makeRecognition();
+  }
+
+  recog.onresult = event => {
+    isSpeaking = true;
+    const latestTranscript = event.results[event.results.length - 1][0].transcript;
+    const isFinal = event.results[event.results.length - 1].isFinal;
+
+    if (timeoutId) globalThis.clearTimeout(timeoutId);
+    if (translatedTimeoutId) globalThis.clearTimeout(translatedTimeoutId);
+
+    const remaining = form.isBracketed.checked ? `<< ${latestTranscript} >>` : latestTranscript;
+    output.textContent = remaining;
+    obs.send(JSON.stringify({
+      "request-type": `SetText${form.type.value}Properties`,
+      "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+      "source": form.src.value,
+      "text": remaining,
+    }));
+
+    if (!isFinal) return;
+
+    if (form.isBracketed.checked) {
+      output.textContent = latestTranscript;
+      obs.send(JSON.stringify({
+        "request-type": `SetText${form.type.value}Properties`,
+        "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+        "source": form.src.value,
+        "text": latestTranscript,
+      }));
+    }
+
+    if (form.hasYukarinette.checked && !!yukarinette) yukarinette.send(`0:${latestTranscript}`);
+
+    if (form.isTranslation.checked) {
+      fetch(`https://script.google.com/macros/s/${form.gas.value}/exec?text=${latestTranscript}&source=ja&target=en`, {
+        mode: "cors",
+      })
+        .then(res => res.text())
+        .then(translatedTranscript => {
+          translatedOutput.textContent = translatedTranscript;
+          obs.send(JSON.stringify({
+            "request-type": `SetText${form.type.value}Properties`,
+            "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+            "source": form.transrc.value,
+            "text": translatedTranscript,
+          }));
+          if (Number(form.transfadetime.value)) {
+            translatedTimeoutId = globalThis.setTimeout(() => {
+              translatedOutput.textContent = "";
+              if (!obs) return;
+              obs.send(JSON.stringify({
+                "request-type": `SetText${form.type.value}Properties`,
+                "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+                "source": form.transrc.value,
+                "text": "",
+              }));
+            }, Number(form.transfadetime.value));
+          }
+        });
+    }
+
+    if (Number(form.fadetime.value)) {
+      timeoutId = globalThis.setTimeout(() => {
+        output.textContent = "";
+        if (!obs) return;
+        obs.send(JSON.stringify({
+          "request-type": `SetText${form.type.value}Properties`,
+          "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+          "source": form.src.value,
+          "text": "",
+        }));
+      }, Number(form.fadetime.value));
+    }
+
+    isSpeaking = false;
+    makeRecognition();
+
+  };
+
+  recog.start();
+};
+
+const afterConnected = () => {
+  isRunning = true;
+  output.textContent = "*READY*";
+  isSpeaking = false;
+
+  makeRecognition();
+}
 
 const submit = event => {
   event.preventDefault();
@@ -95,109 +199,7 @@ const submit = event => {
     }
   };
 
-  const afterConnected = () => {
-    isRunning = true;
-    output.textContent = "*READY*";
-    let isSpeaking = false;
 
-    const makeRecognition = () => {
-
-      recog = Object.assign(new webkitSpeechRecognition(), {
-        lang: globalThis.navigator.language,
-        interimResults: true,
-        continuous: true,
-      });
-
-      recog.onerror = _ => {
-        if (!isSpeaking) makeRecognition();
-      }
-
-      recog.onsoundend = _ => {
-        makeRecognition();
-      }
-
-      recog.onresult = event => {
-        isSpeaking = true;
-        const latestTranscript = event.results[event.results.length - 1][0].transcript;
-        const isFinal = event.results[event.results.length - 1].isFinal;
-
-        if (timeoutId) globalThis.clearTimeout(timeoutId);
-        if (translatedTimeoutId) globalThis.clearTimeout(translatedTimeoutId);
-
-        const remaining = form.isBracketed.checked ? `<< ${latestTranscript} >>` : latestTranscript;
-        output.textContent = remaining;
-        obs.send(JSON.stringify({
-          "request-type": `SetText${form.type.value}Properties`,
-          "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-          "source": form.src.value,
-          "text": remaining,
-        }));
-
-        if (!isFinal) return;
-
-        if (form.isBracketed.checked) {
-          output.textContent = latestTranscript;
-          obs.send(JSON.stringify({
-            "request-type": `SetText${form.type.value}Properties`,
-            "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-            "source": form.src.value,
-            "text": latestTranscript,
-          }));
-        }
-
-        if (form.hasYukarinette.checked && !!yukarinette) yukarinette.send(`0:${latestTranscript}`);
-
-        if (form.isTranslation.checked) {
-          fetch(`https://script.google.com/macros/s/${form.gas.value}/exec?text=${latestTranscript}&source=ja&target=en`, {
-            mode: "cors",
-          })
-            .then(res => res.text())
-            .then(translatedTranscript => {
-              translatedOutput.textContent = translatedTranscript;
-              obs.send(JSON.stringify({
-                "request-type": `SetText${form.type.value}Properties`,
-                "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-                "source": form.transrc.value,
-                "text": translatedTranscript,
-              }));
-              if (Number(form.transfadetime.value)) {
-                translatedTimeoutId = globalThis.setTimeout(() => {
-                  translatedOutput.textContent = "";
-                  if (!obs) return;
-                  obs.send(JSON.stringify({
-                    "request-type": `SetText${form.type.value}Properties`,
-                    "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-                    "source": form.transrc.value,
-                    "text": "",
-                  }));
-                }, Number(form.transfadetime.value));
-              }
-            });
-        }
-
-        if (Number(form.fadetime.value)) {
-          timeoutId = globalThis.setTimeout(() => {
-            output.textContent = "";
-            if (!obs) return;
-            obs.send(JSON.stringify({
-              "request-type": `SetText${form.type.value}Properties`,
-              "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-              "source": form.src.value,
-              "text": "",
-            }));
-          }, Number(form.fadetime.value));
-        }
-
-        isSpeaking = false;
-        makeRecognition();
-
-      };
-
-      recog.start();
-    };
-
-    makeRecognition();
-  }
 
   obs.onerror = event => {
     isRunning = false;
