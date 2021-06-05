@@ -106,6 +106,9 @@ const makeRecognition = () => {
               }));
             }, Number(form.transfadetime.value));
           }
+        })
+        .catch(_ => {
+          translatedOutput.textContent = "翻訳エラー: デプロイ ID が不正です。";
         });
     }
 
