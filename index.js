@@ -86,7 +86,6 @@ const makeRecognition = () => {
         });
 
     if (form.hasYukarinette.checked && !!yukarinette) yukarinette.send(`0:${latestTranscript}`);
-    if (form.hasYukarinette.checked && !!yukarinette) yukarinette.send(`3:いもいも`);
     if (form.hasYukarinette.checked && !!yukarinette) document.querySelector("#ykout").textContent = `ゆかりねっとに送信: [0:${latestTranscript}]`;
 
     if (form.isTranslation.checked) {
