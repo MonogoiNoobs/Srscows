@@ -79,6 +79,12 @@ const makeRecognition = () => {
       }));
     }
 
+    if (form.hasBouyomiChan.checked)
+      fetch(`http://localhost:${form.bouyomiChanPort.value}/talk?text=${latestTranscript}`, { mode: "no-cors" })
+        .catch(_ => {
+          document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
+        });
+
     if (form.hasYukarinette.checked && !!yukarinette) yukarinette.send(`0:${latestTranscript}`);
 
     if (form.isTranslation.checked) {
@@ -250,6 +256,7 @@ const cleanup = () => {
   }
   obs.close();
   obs = null;
+  document.querySelector("#bcout").textContent = "";
   if (recog) recog.stop();
 };
 

@@ -10,20 +10,20 @@
 
 <style>
   .gas,
-  .yn {
+  .yn,
+  .bc {
     display: none;
   }
 
-  #isTranslation:checked+.gas {
-    display: block;
-  }
-
-  #hasYukarinette:checked+.yn {
+  #isTranslation:checked+.gas,
+  #hasYukarinette:checked+.yn,
+  #hasBouyomiChan:checked+.bc {
     display: block;
   }
 
   .gas label,
-  .yn label {
+  .yn label,
+  .bc label {
     display: block;
   }
 </style>
@@ -49,6 +49,9 @@
     <p><label for="hasYukarinette">ゆかりねっとに認識結果を送る: </label><input type="checkbox" name="hasYukarinette"
         id="hasYukarinette"><span class="yn">
         <label>ポート番号: <input type="number" id="yukarinettePort" min="0" value="49513"></label></span></p>
+    <p><label for="hasBouyomiChan">棒読みちゃんに認識結果を送る: </label><input type="checkbox" name="hasBouyomiChan"
+        id="hasBouyomiChan"><span class="bc">
+        <label>ポート番号: <input type="number" id="bouyomiChanPort" min="0" value="50080"></label></span></p>
     <p><button type="submit" id="submit">接続</button><button type="cancel" id="cancel" disabled>切断</button></p>
   </fieldset>
 </form>
@@ -56,6 +59,7 @@
 <p><output id="stdout"></output></p>
 <p><output id="trans"></output></p>
 <p><output id="ykout"></output></p>
+<p><output id="bcout"></output></p>
 
 <script>
   const isChrome = globalThis.navigator.userAgent.includes("Chrome/")
