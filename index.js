@@ -141,9 +141,22 @@ const afterConnected = () => {
   makeRecognition();
 }
 
+const isValid = elements => {
+  if (form.isTranslation.checked && !/^[A-Za-z\d_]+$/u.test(elements.gas.value)) {
+    translatedOutput.textContent = "翻訳エラー: 無効なデプロイ ID です。";
+    return false;
+  }
+  return true;
+};
+
 const submit = event => {
   event.preventDefault();
   toggleAll();
+
+  if (!isValid(document.forms.main.elements)) {
+    toggleAll();
+    return;
+  }
 
   if (form.hasYukarinette.checked && !!!yukarinette) {
     yukarinette = Object.assign(new WebSocket(`ws://localhost:${Number(form.yukarinettePort.value)}`), {
