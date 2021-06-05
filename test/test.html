@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>a</title>
+
+<form id="main">
+  <label><input type="number" value="49513" id="port"></label>
+  <p><button type="submit" id="connect">connect</button></p>
+  <p><button type="cancel" id="close">close</button></p>
+</form>
+<p><output id="ykout"></output></p>
+
+<script>
+  let yukarinette = null;
+  let count = 1;
+  let inter = null;
+  const submit = document.querySelector("#connect");
+  submit.addEventListener("click", event => {
+    event.preventDefault();
+    yukarinette = Object.assign(new WebSocket(`ws://localhost:${Number(document.forms.main.elements.port.value)}`), {
+      onopen() {
+        document.querySelector("#ykout").textContent = "ゆかりねっとに接続しました。";
+        inter = setInterval(() => {
+          yukarinette.send(`0:${count}`);
+          document.querySelector("#ykout").textContent = `sending: [0:${count}]`;
+          count = count + 1;
+        }, 1000)
+      },
+      onerror() {
+        document.querySelector("#ykout").textContent = "ゆかりねっととの接続に失敗しました。";
+        yukarinette = null;
+      },
+    });
+  });
+
+  const cancel = document.querySelector("#close");
+  cancel.addEventListener("click", event => {
+    event.preventDefault();
+    if (yukarinette) yukarinette.close();
+    if (yukarinette) count = 1;
+    if (yukarinette) document.querySelector("#ykout").textContent = "切断";
+    if (inter) {
+      clearInterval(inter);
+      inter = null;
+    }
+  })
+</script>
