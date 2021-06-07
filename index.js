@@ -227,7 +227,7 @@ const submit = event => {
   obs.onerror = event => {
     isRunning = false;
     toggleAll();
-    output.textContent = `[ERROR] ${event.message}`;
+    output.textContent = `[ERROR] ${event.message ?? "OBS が起動していないか、ポート番号が間違っています。"}`;
     if (recog) recog.stop();
     if (obs) {
       obs.close();
