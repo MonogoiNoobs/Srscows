@@ -36,5 +36,24 @@ function doGet(e) {
 1. 棒読みちゃんの設定から「アプリケーション連携」、「HTTP連携」の「ローカルHTTPサーバー機能を使う」を「True」にし、直下のポート番号を控えておく。
 2. 認識結果待ち受けポートをフォームに入力する。
 
+# クイック起動
+1. 以下をメモ帳に貼り付ける。
+2. 「名前を付けて保存」を開く。
+3. 「文字コード」を「ANSI」にする。
+4. 拡張子を `.bat` にして保存する。
+```bat
+@echo off
+
+if not exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
+  echo エラー: Google Chrome が見つかりません
+  echo;
+  pause
+  exit /b 2
+)
+
+"%ProgramFiles%\Google\Chrome\Application\chrome.exe" --incognito --disable-extensions --disable-background-mode --app="https://monogoinoobs.github.io/Srscows/"
+exit /b 0
+```
+
 # ライセンス
 MIT-0
