@@ -16,6 +16,9 @@ let yukarinette = null;
 let isRunning = false;
 let isSpeaking = false;
 
+const japaneseSpacesRegExp = /(?<=[^!-~])\s(?=[^!-~])/gu;
+const strangeSpacesRegExp = /(?:(?<=[!-~])\s(?=[^!-~])|(?<=[^!-~])\s(?=[!-~]))/gu;
+
 const output = document.querySelector("#stdout");
 const translatedOutput = document.querySelector("#trans");
 const form = document.forms.main.elements;
@@ -55,6 +58,12 @@ const makeRecognition = () => {
     const latestTranscript = event.results[event.results.length - 1][0].transcript;
     const isFinal = event.results[event.results.length - 1].isFinal;
 
+    const doesTrim = form.doesTrim.checked || form.yukarinetteDoesTrim.checked || form.bouyomiChanDoesTrim.checked;
+    const doesTrimStrangers = form.doesTrimStrangers.checked || form.yukarinetteDoesTrimStrangers.checked || form.bouyomiChanDoesTrimStrangers.checked;
+
+    const prepareTrimming = form.doesTrim.checked ? latestTranscript.replace(japaneseSpacesRegExp, "") : latestTranscript;
+    const trimmed = form.doesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareTrimming;
+
     if (timeoutId) globalThis.clearTimeout(timeoutId);
     if (translatedTimeoutId) globalThis.clearTimeout(translatedTimeoutId);
 
@@ -69,24 +78,29 @@ const makeRecognition = () => {
 
     if (!isFinal) return;
 
-    if (form.isBracketed.checked) {
-      output.textContent = latestTranscript;
-      obs.send(JSON.stringify({
-        "request-type": `SetText${form.type.value}Properties`,
-        "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-        "source": form.src.value,
-        "text": latestTranscript,
-      }));
-    }
+    output.textContent = trimmed;
+    obs.send(JSON.stringify({
+      "request-type": `SetText${form.type.value}Properties`,
+      "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+      "source": form.src.value,
+      "text": trimmed,
+    }));
+
+    const prepareBouyomiChanTrimming = form.bouyomiChanDoesTrim.checked ? latestTranscript.replace(japaneseSpacesRegExp, "") : latestTranscript;
+    const trimmedBouyomiChan = form.bouyomiChanDoesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareBouyomiChanTrimming;
+
 
     if (form.hasBouyomiChan.checked)
-      fetch(`http://localhost:${form.bouyomiChanPort.value}/talk?text=${latestTranscript}`, { mode: "no-cors" })
+      fetch(`http://localhost:${form.bouyomiChanPort.value}/talk?text=${trimmedBouyomiChan}`, { mode: "no-cors" })
         .catch(_ => {
           document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
         });
 
-    if (form.hasYukarinette.checked && !!yukarinette) yukarinette.send(`0:${latestTranscript}`);
-    if (form.hasYukarinette.checked && !!yukarinette) document.querySelector("#ykout").textContent = `ゆかりねっとに送信: [0:${latestTranscript}]`;
+    const prepareYukarinetteTrimming = form.yukarinetteDoesTrim.checked ? latestTranscript.replace(japaneseSpacesRegExp, "") : latestTranscript;
+    const trimmedYukarinette = form.yukarinetteDoesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareYukarinetteTrimming;
+
+    if (form.hasYukarinette.checked && !!yukarinette) yukarinette.send(`0:${trimmedYukarinette}`);
+    if (form.hasYukarinette.checked && !!yukarinette) document.querySelector("#ykout").textContent = `ゆかりねっとに送信: [0:${trimmedYukarinette}]`;
 
     if (form.isTranslation.checked) {
       fetch(`https://script.google.com/macros/s/${form.gas.value}/exec?text=${latestTranscript}&source=ja&target=en`, {

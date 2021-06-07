@@ -41,6 +41,8 @@
           <option value="Freetype2">FreeType 2</option>
         </select></label></p>
     <p><label>認識中は &lt;&lt;&gt;&gt; で囲む: <input type="checkbox" id="isBracketed" checked></label></p>
+    <label>日本語間のスペースを除去してから送る: <input type="checkbox" id="doesTrim" checked></label>
+    <p><label>日本語-英数字間のスペースを除去してから送る: <input type="checkbox" id="doesTrimStrangers"></label></p>
     <p><label for="isTranslation">GAS による翻訳を表示する: </label><input type="checkbox" id="isTranslation"><span
         class="unseen">
         <label>翻訳字幕ソース: <input type="text" id="transrc" value="sub_en"></label>
@@ -51,10 +53,14 @@
     <p><label for="hasYukarinette">ゆかりねっとに認識結果を送る: </label><input type="checkbox" id="hasYukarinette"><span
         class="unseen">
         <label>ポート番号: <input type="number" id="yukarinettePort" min="0" value="49513"></label>
+        <label>日本語間のスペースを除去してから送る: <input type="checkbox" id="yukarinetteDoesTrim" checked></label>
+        <label>日本語-英数字間のスペースを除去してから送る: <input type="checkbox" id="yukarinetteDoesTrimStrangers" checked></label>
       </span></p>
     <p><label for="hasBouyomiChan">棒読みちゃんに認識結果を送る: </label><input type="checkbox" name="hasBouyomiChan"
         id="hasBouyomiChan"><span class="unseen">
         <label>ポート番号: <input type="number" id="bouyomiChanPort" min="0" value="50080"></label>
+        <label>日本語間のスペースを除去してから送る: <input type="checkbox" id="bouyomiChanDoesTrim" checked></label>
+        <label>日本語-英数字間のスペースを除去してから送る: <input type="checkbox" id="bouyomiChanDoesTrimStrangers" checked></label>
       </span></p>
     <p><button type="cancel" id="cancel" disabled>切断</button><button type="submit" id="submit">接続</button></p>
   </fieldset>
