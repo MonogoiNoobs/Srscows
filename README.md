@@ -4,9 +4,11 @@
 </p>
 
 # 必要なもの
-* Google Chrome
-* OBS Studio
-  * [obs-websocket プラグイン](https://github.com/Palakis/obs-websocket)
+* [Google Chrome](https://www.google.com/chrome/)
+* [OBS Studio](https://obsproject.com/)
+  * [obs-websocket プラグイン](https://github.com/Palakis/obs-websocket/releases/latest)
+* [ゆかりねっと](http://www.okayulu.moe/) (任意)
+* [棒読みちゃん (β版)](https://chi.usamimi.info/Program/Application/BouyomiChan/) (任意)
 
 # 使い方
 1. OBS の WebSockets サーバーを有効にする。
