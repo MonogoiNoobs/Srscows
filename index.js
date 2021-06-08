@@ -141,9 +141,6 @@ const makeRecognition = () => {
     const latestTranscript = event.results[event.results.length - 1][0].transcript;
     const isFinal = event.results[event.results.length - 1].isFinal;
 
-    const doesTrim = form.doesTrim.checked || form.yukarinetteDoesTrim.checked || form.bouyomiChanDoesTrim.checked;
-    const doesTrimStrangers = form.doesTrimStrangers.checked || form.yukarinetteDoesTrimStrangers.checked || form.bouyomiChanDoesTrimStrangers.checked;
-
     const prepareTrimming = form.doesTrim.checked ? latestTranscript.replace(japaneseSpacesRegExp, "") : latestTranscript;
     const trimmed = form.doesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareTrimming;
 
