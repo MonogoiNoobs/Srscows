@@ -38,7 +38,9 @@ class TwitchChatVisitor extends WebSocket {
   }
 
   join(channel) {
-    if (this.#channel) throw new Error("already joined as fuck for the fucking fuck");
+    if (this.#channel) {
+      this.part();
+    };
     if (!this.isValidChannelName(channel)) throw new Error("invalid channel as fuck");
     this.#channel = channel;
     this.send(`JOIN #${this.#channel}`);
@@ -282,8 +284,8 @@ const submit = event => {
         };
 
         document.addEventListener("twitchyousuck", fuckoff, { once: true });
-      }).catch(_ => {
-        document.querySelector("#bcout").textContent = "Twitch との接続に失敗しました。";
+      }).catch(e => {
+        document.querySelector("#bcout").textContent = `Twitch との接続に失敗しました: ${e}`;
       });
 
   }
@@ -381,7 +383,6 @@ const cleanup = () => {
   }
   document.querySelector("#bcout").textContent = "";
   if (recog) recog.stop();
-  document.dispatchEvent(new CustomEvent("twitchyousuck"))
 };
 
 form.submit.addEventListener("click", submit, false);
