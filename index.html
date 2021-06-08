@@ -22,6 +22,7 @@
   #isTranslation:checked+.unseen,
   #hasYukarinette:checked+.unseen,
   #hasBouyomiChan:checked+.unseen,
+  #bouyomiChanHasTwitch:checked+.unseen,
   .unseen label {
     display: block;
   }
@@ -56,14 +57,22 @@
         <label>日本語間のスペースを除去してから送る: <input type="checkbox" id="yukarinetteDoesTrim" checked></label>
         <label>日本語-英数字間のスペースを除去してから送る: <input type="checkbox" id="yukarinetteDoesTrimStrangers" checked></label>
       </span></p>
-    <p><label for="hasBouyomiChan">棒読みちゃんに認識結果を送る: </label><input type="checkbox" name="hasBouyomiChan"
-        id="hasBouyomiChan"><span class="unseen">
+    <p id="bcrecog"><label for="hasBouyomiChan">棒読みちゃんに認識結果を送る: </label><input type="checkbox" id="hasBouyomiChan"><span
+        class="unseen">
         <label>ポート番号: <input type="number" id="bouyomiChanPort" min="0" value="50080"></label>
         <label>日本語間のスペースを除去してから送る: <input type="checkbox" id="bouyomiChanDoesTrim" checked></label>
         <label>日本語-英数字間のスペースを除去してから送る: <input type="checkbox" id="bouyomiChanDoesTrimStrangers" checked></label>
       </span></p>
-    <p><button type="cancel" id="cancel" disabled>切断</button><button type="submit" id="submit">接続</button></p>
+    <p><label for="bouyomiChanHasTwitch">棒読みちゃんで Twitch のチャットを読み上げる: </label><input type="checkbox"
+        id="bouyomiChanHasTwitch"
+        oninput="this.checked ? bcrecog.querySelectorAll('input').forEach(e => e.setAttribute('disabled', 'disabled')) : bcrecog.querySelectorAll('input').forEach(e => e.removeAttribute('disabled'))"><span
+        class="unseen">
+        <label>ポート番号: <input type="number" id="bouyomiChanTwitchPort" min="0" value="50080"></label>
+        <label>チャンネル ID: <input type="text" id="bouyomiChanTwitchId"></label>
+        <label>敬称: <input type="text" id="bouyomiChanTwitchHonorific" value="さん"></label>
+      </span></p>
   </fieldset>
+  <p><button type="cancel" id="cancel" disabled>切断</button><button type="submit" id="submit">接続</button></p>
 </form>
 
 <p><output id="stdout"></output></p>

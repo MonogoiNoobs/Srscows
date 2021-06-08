@@ -16,6 +16,88 @@ let yukarinette = null;
 let isRunning = false;
 let isSpeaking = false;
 
+/**
+ * @todo Obviously refactoring is needed
+ */
+class TwitchChatVisitor extends WebSocket {
+  #privmsgRegExp = /:(\w+)!\w+@\w+\.tmi\.twitch\.tv\sPRIVMSG\s#\w+\s:(.+)/u
+  static #glhfRegExp = /^:tmi\.twitch\.tv\s\d{3}\sjustinfan\d{1,4}\s:Welcome,\sGLHF!$/u;
+  static #singleton = null;
+  #channel = null;
+
+  constructor() {
+    try {
+      super("wss://irc-ws.chat.twitch.tv:443");
+    } catch (e) {
+      throw new Error("Twitch connection error");
+    }
+
+    this.addEventListener("open", _ => {
+      this.send(`NICK justinfan${Math.trunc(10000 * Math.random())}`);
+    }, { once: true });
+  }
+
+  join(channel) {
+    if (this.#channel) throw new Error("already joined as fuck for the fucking fuck");
+    if (!this.isValidChannelName(channel)) throw new Error("invalid channel as fuck");
+    this.#channel = channel;
+    this.send(`JOIN #${this.#channel}`);
+    this.addEventListener("message", this.messageCallback, false);
+    console.log("joined as fuck:", channel)
+  }
+
+  part() {
+    if (!this.#channel) throw new Error("not joined as fuck for the fucj");
+    this.send(`PART #${this.#channel}`);
+    this.#channel = null;
+    this.removeEventListener("message", this.messageCallback, false);
+    console.log("parted as fuck")
+  }
+
+  messageCallback(event) {
+    const data = event.data.trim();
+
+    if (data === "PING :tmi.twitch.tv") {
+      this.send("PONG :tmi.twitch.tv");
+      return;
+    }
+    const filtered = this.#privmsgRegExp.exec(data);
+    if (filtered) {
+      this.dispatchEvent(new MessageEvent("chat", {
+        data: {
+          name: filtered[1],
+          chat: filtered[2],
+        }
+      }))
+    }
+  }
+
+  isValidChannelName(channel) {
+    return channel != null && /^\w+$/.test(channel);
+  }
+
+  static async connect() {
+    if (TwitchChatVisitor.#singleton) {
+      return new Promise(resolve => resolve(TwitchChatVisitor.#singleton));
+    }
+    return new Promise((resolve, reject) => {
+      const glhfEvent = event => {
+        if (TwitchChatVisitor.#glhfRegExp.test(event.data.split("\n")[0].trim())) {
+          event.target.removeEventListener("message", glhfEvent, false);
+          console.log("resolved")
+          resolve(event.target);
+        }
+      }
+      try {
+        TwitchChatVisitor.#singleton = new TwitchChatVisitor();
+        TwitchChatVisitor.#singleton.addEventListener("message", glhfEvent, false);
+      } catch (e) {
+        reject(e);
+      }
+    })
+  }
+}
+
 const japaneseSpacesRegExp = /(?<=[^!-~])\s(?=[^!-~])/gu;
 const strangeSpacesRegExp = /(?:(?<=[!-~])\s(?=[^!-~])|(?<=[^!-~])\s(?=[!-~]))/gu;
 
@@ -28,9 +110,8 @@ const hashPromise = arg => crypto.subtle.digest("SHA-256", new TextEncoder().enc
 const buftob = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
 
 const toggleAll = () => {
-  for (const element of document.forms.main.querySelectorAll("[id]")) {
-    element.toggleAttribute("disabled");
-  }
+  form.submit.toggleAttribute("disabled");
+  form.cancel.toggleAttribute("disabled");
   form.field.toggleAttribute("disabled");
   if (yukarinette) {
     form.yukarinettePort.removeAttribute("disabled");
@@ -90,7 +171,7 @@ const makeRecognition = () => {
     const trimmedBouyomiChan = form.bouyomiChanDoesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareBouyomiChanTrimming;
 
 
-    if (form.hasBouyomiChan.checked)
+    if (form.hasBouyomiChan.checked && !form.bouyomiChanHasTwitch.checked)
       fetch(`http://localhost:${form.bouyomiChanPort.value}/talk?text=${trimmedBouyomiChan}`, { mode: "no-cors" })
         .catch(_ => {
           document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
@@ -179,6 +260,34 @@ const submit = event => {
     return;
   }
 
+  if (form.bouyomiChanHasTwitch.checked) {
+
+    TwitchChatVisitor.connect()
+      .then(twitch => {
+        const chat = event => {
+          const built = `${event.data.name}${form.bouyomiChanTwitchHonorific.value}、${event.data.chat}`;
+          document.querySelector("#bcout").textContent = `棒読みちゃんへ送信: [${built}]`
+          fetch(`http://localhost:${form.bouyomiChanTwitchPort.value}/talk?text=${built}`, { mode: "no-cors" })
+            .catch(_ => {
+              document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
+            });
+        };
+        twitch.join(form.bouyomiChanTwitchId.value);
+        twitch.addEventListener("chat", chat, false);
+
+        const fuckoff = event => {
+          twitch.part();
+          twitch.removeEventListener("chat", chat, false);
+          console.log("Twitch disconnected as fuck")
+        };
+
+        document.addEventListener("twitchyousuck", fuckoff, { once: true });
+      }).catch(_ => {
+        document.querySelector("#bcout").textContent = "Twitch との接続に失敗しました。";
+      });
+
+  }
+
   if (form.hasYukarinette.checked && !!!yukarinette) {
     yukarinette = Object.assign(new WebSocket(`ws://localhost:${Number(form.yukarinettePort.value)}`), {
       onopen() {
@@ -243,36 +352,36 @@ const submit = event => {
     toggleAll();
     output.textContent = `[ERROR] ${event.message ?? "OBS が起動していないか、ポート番号が間違っています。"}`;
     if (recog) recog.stop();
-    if (obs) {
-      obs.close();
-      obs = null;
-    }
+    cleanup();
   };
 };
 
 
 const cleanup = () => {
   isRunning = false;
-  obs.send(JSON.stringify({
-    "request-type": `SetText${form.type.value}Properties`,
-    "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-    "source": form.src.value,
-    "text": "",
-  }));
-  output.textContent = "";
-  if (form.isTranslation.checked) {
+  if (obs) {
     obs.send(JSON.stringify({
       "request-type": `SetText${form.type.value}Properties`,
       "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-      "source": form.transrc.value,
+      "source": form.src.value,
       "text": "",
     }));
-    translatedOutput.textContent = "";
+    output.textContent = "";
+    if (form.isTranslation.checked) {
+      obs.send(JSON.stringify({
+        "request-type": `SetText${form.type.value}Properties`,
+        "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+        "source": form.transrc.value,
+        "text": "",
+      }));
+      translatedOutput.textContent = "";
+    }
+    obs.close();
+    obs = null;
   }
-  obs.close();
-  obs = null;
   document.querySelector("#bcout").textContent = "";
   if (recog) recog.stop();
+  document.dispatchEvent(new CustomEvent("twitchyousuck"))
 };
 
 form.submit.addEventListener("click", submit, false);
