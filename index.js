@@ -383,6 +383,7 @@ const cleanup = () => {
   }
   document.querySelector("#bcout").textContent = "";
   if (recog) recog.stop();
+  document.dispatchEvent(new CustomEvent("twitchyousuck"));
 };
 
 form.submit.addEventListener("click", submit, false);
