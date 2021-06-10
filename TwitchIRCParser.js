@@ -15,13 +15,10 @@ export class TwitchIRCParser {
     ["\n", "\\n"],
   ];
 
-  #IRCTagEscapingValueMap;
-  #IRCTagUnescapingValueMap;
+  #IRCTagEscapingValueMap = new Map(this.#IRCTagEscapingValueEntries);
+  #IRCTagUnescapingValueMap = new Map(this.#flipEntries(this.#IRCTagEscapingValueEntries));
 
-  constructor() {
-    this.#IRCTagEscapingValueMap = new Map(this.#IRCTagEscapingValueEntries);
-    this.#IRCTagUnescapingValueMap = new Map(this.#flipEntries(this.#IRCTagEscapingValueEntries));
-  }
+  constructor() { }
 
   #flipEntries(array) {
     return array.flatMap(v => [[v[1], v[0]]]);
@@ -40,7 +37,10 @@ export class TwitchIRCParser {
   }
 
   #escapeIRCTagComponent(arg) {
-    return this.#replaceEscapings(this.#unitArrayValues(Array.from(String(arg))), this.#IRCTagEscapingValueMap).join("");
+    return this.#replaceEscapings(
+      this.#unitArrayValues(Array.from(String(arg))),
+      this.#IRCTagEscapingValueMap
+    ).join("");
   }
 
   #unescapeIRCTagComponent(arg) {
@@ -49,11 +49,12 @@ export class TwitchIRCParser {
       if (arg[i] === "\\") {
         result = [...result, [`${arg[i]}${arg[i + 1]}`]];
         ++i;
-      } else {
-        result = [...result, [arg[i]]];
-      }
+      } else result = [...result, [arg[i]]];
     }
-    return this.#replaceEscapings(result, this.#IRCTagUnescapingValueMap).join("");
+    return this.#replaceEscapings(
+      result,
+      this.#IRCTagUnescapingValueMap
+    ).join("");
   }
 
   #isCRLFEnded(response) {
@@ -71,8 +72,10 @@ export class TwitchIRCParser {
   #trimUndefined(obj) {
     return Object.fromEntries(
       Object.entries(obj)
-        .flatMap(
-          ([k, v]) => v && v.length !== 0 ? [[k, v]] : []
+        .flatMap(([k, v]) =>
+          v && v.length !== 0
+            ? [[k, v]]
+            : []
         )
     );
   }
@@ -85,7 +88,9 @@ export class TwitchIRCParser {
     return str.split(";").flatMap(v => {
       const [_key, ..._value] = v.split("=");
       let key = this.#unescapeIRCTagComponent(_key);
-      let value = _value.join("") ? this.#unescapeIRCTagComponent(_value.join("")) : null;
+      let value = _value.join("")
+        ? this.#unescapeIRCTagComponent(_value.join(""))
+        : null;
       key = this.#atoiIfNumber(key);
       value = this.#atoiIfNumber(value);
       return [[key, v.split("=")[1] ? value : true]];
@@ -96,12 +101,21 @@ export class TwitchIRCParser {
     const paramsTrimmedFirstSpace = params.slice(1);
     if (this.#isColonStarted(paramsTrimmedFirstSpace))
       return {
-        params: [...middles, paramsTrimmedFirstSpace.trimEnd().slice(1)]
+        params: [
+          ...middles,
+          paramsTrimmedFirstSpace
+            .trimEnd()
+            .slice(1)
+        ]
       };
     const prepareMiddle = this.#middleRegExp.exec(paramsTrimmedFirstSpace);
-    if (!prepareMiddle || paramsTrimmedFirstSpace.length < 2) return { params: middles };
+    if (!prepareMiddle || paramsTrimmedFirstSpace.length < 2)
+      return { params: middles };
     const middle = prepareMiddle[0];
-    return this.#parseParams(paramsTrimmedFirstSpace.replace(middle, ""), [...middles, middle]);
+    return this.#parseParams(
+      paramsTrimmedFirstSpace.replace(middle, ""),
+      [...middles, middle]
+    );
   }
 
   parse(response) {
@@ -122,21 +136,23 @@ export class TwitchIRCParser {
     };
     if (result.tags)
       result.tags = Object.fromEntries(this.#parseTags(result.tags));
-    else result.tags = {};
+    else
+      result.tags = {};
     result.verb = this.#atoiIfNumber(result.verb);
     return result;
   }
 
   stringify(obj) {
     let first = "";
-    if (Object.keys(obj.tags).length) {
+
+    if (Object.keys(obj.tags).length)
       first = `@${Object.entries(obj.tags).flatMap(v => [[this.#escapeIRCTagComponent(v[0]), v[1] === true ? [] : this.#escapeIRCTagComponent(v[1])].flat()]).flatMap(v => [v.join("=")]).join(";")} `;
-    }
-    if (obj.source.hasOwnProperty("servername")) {
+
+    if (obj.source.hasOwnProperty("servername"))
       first += `:${obj.source.servername} `;
-    } else if (obj.source.hasOwnProperty("nick")) {
+    else if (obj.source.hasOwnProperty("nick"))
       first += `:${obj.source.nick}${obj.source.hasOwnProperty("user") ? "!" + obj.source.user : ""}${obj.source.hasOwnProperty("host") ? "@" + obj.source.host : ""} `;
-    }
+
     return `${first}${obj.verb}${obj.params.flatMap(v => [` ${v}`]).join("")}${"\r\n"}`;
   }
 }
