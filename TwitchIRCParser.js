@@ -223,7 +223,7 @@ export class TwitchIRCParser {
     if (obj.hasOwnProperty("nick")) {
       first = `:${obj.nick}${obj.hasOwnProperty("user") ? "!" + obj.user : ""}${obj.hasOwnProperty("host") ? "@" + obj.host : ""} `;
     }
-    const params = `${obj.hasOwnProperty("middles") ? obj.middles.flatMap(v => [" " + v]).join(" ") : ""} :${obj.trailing}`;
+    const params = `${obj.hasOwnProperty("middles") ? obj.middles.flatMap(v => [" " + v]).join("") : ""} :${obj.trailing}`;
     return `${first}${obj.command}${params}${"\r\n"}`;
   }
 };
