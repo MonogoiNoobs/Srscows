@@ -163,6 +163,10 @@ export class TwitchIRCParser {
     else if (obj.source.hasOwnProperty("nick"))
       first += `:${obj.source.nick}${obj.source.hasOwnProperty("user") ? "!" + obj.source.user : ""}${obj.source.hasOwnProperty("host") ? "@" + obj.source.host : ""} `;
 
-    return `${first}${obj.verb}${obj.params.flatMap(v => [` ${v.includes(" ") ? `:${v}` : v}`]).join("")}${"\r\n"}`;
+    return `${first}${obj.verb}${obj.params.flatMap(v => {
+      if (v.includes(" ") && v !== obj.params[obj.params.length - 1])
+        throw new Error("Invalid params");
+      return [` ${v.includes(" ") ? `:${v}` : v}`];
+    }).join("")}${"\r\n"}`;
   }
 }
