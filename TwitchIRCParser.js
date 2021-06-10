@@ -1,7 +1,7 @@
 import { Numerics } from "./Numerics.js";
 
 export class TwitchIRCParser {
-  #byCommandRegExp = /^(?:@(?<tags>[^\r\n \0]+) )?(?::(?<servername>localhost|[A-Za-z\d](?:[A-Za-z\d-]*[A-Za-z\d])?\.[A-Za-z\d](?:[A-Za-z\d-]*[A-Za-z\d])?(?:\.[A-Za-z\d](?:[A-Za-z\d-]*[A-Za-z\d])?)*) |:(?<nick>[A-Za-z\d][A-Za-z\d\[\]\\`^{}_-]*)(?:!(?<user>[A-Za-z\d~][A-Za-z\d\[\]\\`^{}_-]*))?(?:@(?<host>localhost|[A-Za-z\d][A-Za-z_\d-]*\.[A-Za-z\d](?:[A-Za-z_\d-]*[A-Za-z\d])?(?:\.[A-Za-z\d](?:[A-Za-z_\d-]*[A-Za-z\d])?)*))? )?(?<verb>\w+|\d{3})/;
+  #byVerbRegExp = /^(?:@(?<tags>[^\r\n \0]+) )?(?::(?<servername>localhost|[A-Za-z\d](?:[A-Za-z\d-]*[A-Za-z\d])?\.[A-Za-z\d](?:[A-Za-z\d-]*[A-Za-z\d])?(?:\.[A-Za-z\d](?:[A-Za-z\d-]*[A-Za-z\d])?)*) |:(?<nick>[A-Za-z\d][A-Za-z\d\[\]\\`^{}_-]*)(?:!(?<user>[A-Za-z\d~][A-Za-z\d\[\]\\`^{}_-]*))?(?:@(?<host>localhost|[A-Za-z\d][A-Za-z_\d-]*\.[A-Za-z\d](?:[A-Za-z_\d-]*[A-Za-z\d])?(?:\.[A-Za-z\d](?:[A-Za-z_\d-]*[A-Za-z\d])?)*))? )?(?<verb>\w+|\d{3})/;
 
   static Numerics = Numerics;
 
@@ -121,17 +121,27 @@ export class TwitchIRCParser {
   parse(response) {
     if (!(this.#isALine(response) && this.#isCRLFEnded(response)))
       throw new Error("Invalid syntax");
-    const firstPass = response.match(this.#byCommandRegExp);
-    const responsePreparedParseParams = response.replace(firstPass[0], "");
+    const {
+      0: byVerb,
+      groups: {
+        tags,
+        servername,
+        nick,
+        user,
+        host,
+        verb
+      }
+    } = response.match(this.#byVerbRegExp);
+    const responsePreparedParseParams = response.replace(byVerb, "");
     const result = {
-      tags: firstPass.groups.tags,
+      tags,
       source: this.#trimUndefined({
-        servername: firstPass.groups.servername,
-        nick: firstPass.groups.nick,
-        user: firstPass.groups.user,
-        host: firstPass.groups.host
+        servername,
+        nick,
+        user,
+        host
       }),
-      verb: firstPass.groups.verb,
+      verb,
       ...this.#parseParams(responsePreparedParseParams)
     };
     if (result.tags)
