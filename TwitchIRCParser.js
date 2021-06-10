@@ -177,7 +177,7 @@ export class TwitchIRCParser {
   }
 
   #isColonStarted(arg) {
-    return arg === ":";
+    return arg[0] === ":";
   }
 
   #trimUndefined(obj) {
@@ -191,7 +191,7 @@ export class TwitchIRCParser {
 
   #parseParams(params, middles = []) {
     const paramsTrimmedFirstSpace = params.slice(1);
-    if (this.#isColonStarted(paramsTrimmedFirstSpace[0])) {
+    if (this.#isColonStarted(paramsTrimmedFirstSpace)) {
       return {
         middles,
         trailing: paramsTrimmedFirstSpace.slice(1).trimEnd()
