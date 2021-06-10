@@ -94,16 +94,15 @@ export class TwitchIRCParser {
 
   #parseParams(params, middles = []) {
     const paramsTrimmedFirstSpace = params.slice(1);
-    if (this.#isColonStarted(paramsTrimmedFirstSpace)) {
+    if (this.#isColonStarted(paramsTrimmedFirstSpace))
       return {
         params: [...middles, paramsTrimmedFirstSpace.trimEnd().slice(1)]
       };
-    } else {
-      const prepareMiddle = this.#middleRegExp.exec(paramsTrimmedFirstSpace);
-      if (!prepareMiddle || paramsTrimmedFirstSpace.length < 2) return { params: middles };
-      const middle = prepareMiddle[0];
-      return this.#parseParams(paramsTrimmedFirstSpace.replace(middle, ""), [...middles, middle]);
-    }
+    const prepareMiddle = this.#middleRegExp.exec(paramsTrimmedFirstSpace);
+    if (!prepareMiddle || paramsTrimmedFirstSpace.length < 2) return { params: middles };
+    const middle = prepareMiddle[0];
+    return this.#parseParams(paramsTrimmedFirstSpace.replace(middle, ""), [...middles, middle]);
+
   }
 
   parse(response) {
