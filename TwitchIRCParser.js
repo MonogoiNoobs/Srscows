@@ -102,7 +102,6 @@ export class TwitchIRCParser {
     if (!prepareMiddle || paramsTrimmedFirstSpace.length < 2) return { params: middles };
     const middle = prepareMiddle[0];
     return this.#parseParams(paramsTrimmedFirstSpace.replace(middle, ""), [...middles, middle]);
-
   }
 
   parse(response) {
