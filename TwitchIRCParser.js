@@ -1,11 +1,9 @@
+import { Verbs } from "./Verbs.js";
 import { Numerics } from "./Numerics.js";
 
 export class TwitchIRCParser {
-  #byVerbRegExp = /^(?:@(?<tags>[^\r\n \0]+) )?(?::(?<servername>localhost|[A-Za-z\d](?:[A-Za-z\d-]*[A-Za-z\d])?\.[A-Za-z\d](?:[A-Za-z\d-]*[A-Za-z\d])?(?:\.[A-Za-z\d](?:[A-Za-z\d-]*[A-Za-z\d])?)*) |:(?<nick>[A-Za-z\d][A-Za-z\d\[\]\\`^{}_-]*)(?:!(?<user>[A-Za-z\d~][A-Za-z\d\[\]\\`^{}_-]*))?(?:@(?<host>localhost|[A-Za-z\d][A-Za-z_\d-]*\.[A-Za-z\d](?:[A-Za-z_\d-]*[A-Za-z\d])?(?:\.[A-Za-z\d](?:[A-Za-z_\d-]*[A-Za-z\d])?)*))? )?(?<verb>\w+|\d{3})/;
-
+  static Verbs = Verbs;
   static Numerics = Numerics;
-
-  #middleRegExp = /^[^: \0\r\n]*/;
 
   #IRCTagEscapingValueEntries = [
     [";", "\\:"],
@@ -65,21 +63,6 @@ export class TwitchIRCParser {
     return response.includes("\r\n") && response.match(/\r\n/g).length === 1;
   }
 
-  #isColonStarted(arg) {
-    return arg[0] === ":";
-  }
-
-  #trimUndefined(obj) {
-    return Object.fromEntries(
-      Object.entries(obj)
-        .flatMap(([k, v]) =>
-          v && v.length !== 0
-            ? [[k, v]]
-            : []
-        )
-    );
-  }
-
   #atoiIfNumber(str) {
     return Number.isNaN(Number(str)) ? str : Number(str);
   }
@@ -97,76 +80,83 @@ export class TwitchIRCParser {
     });
   }
 
-  #parseParams(params, middles = []) {
-    const paramsTrimmedFirstSpace = params.slice(1);
-    if (this.#isColonStarted(paramsTrimmedFirstSpace))
-      return {
-        params: [
-          ...middles,
-          paramsTrimmedFirstSpace
-            .trimEnd()
-            .slice(1)
-        ]
-      };
-    const prepareMiddle = this.#middleRegExp.exec(paramsTrimmedFirstSpace);
-    if (!prepareMiddle || paramsTrimmedFirstSpace.length < 2)
-      return { params: middles };
-    const middle = prepareMiddle[0];
-    return this.#parseParams(
-      paramsTrimmedFirstSpace.replace(middle, ""),
-      [...middles, middle]
-    );
+  #parseSource(arg) {
+    const result = {};
+    if (!(arg.includes("!") || arg.includes("@")))
+      return arg;
+    if (arg.indexOf("@") !== -1) {
+      result.host = arg.slice(arg.indexOf("@") + 1);
+      arg = arg.slice(0, arg.indexOf("@"));
+    }
+    if (arg.indexOf("!") !== -1) {
+      result.user = arg.slice(arg.indexOf("!") + 1);
+      arg = arg.slice(0, arg.indexOf("!"));
+    }
+
+    return {
+      nickname: arg,
+      ...result
+    };
   }
 
-  parse(response) {
-    if (!(this.#isALine(response) && this.#isCRLFEnded(response)))
-      throw new Error("Invalid syntax");
-    const {
-      0: byVerb,
-      groups: {
-        tags,
-        servername,
-        nick,
-        user,
-        host,
-        verb
-      }
-    } = response.match(this.#byVerbRegExp);
-    const responsePreparedParseParams = response.replace(byVerb, "");
+  parse(arg) {
+    let gotVerb = false;
     const result = {
-      tags,
-      source: this.#trimUndefined({
-        servername,
-        nick,
-        user,
-        host
-      }),
-      verb,
-      ...this.#parseParams(responsePreparedParseParams)
+      tags: {},
+      source: {},
+      verb: "",
+      params: [],
+      hasTrailing: false
     };
-    if (result.tags)
-      result.tags = Object.fromEntries(this.#parseTags(result.tags));
-    else
-      result.tags = {};
-    result.verb = this.#atoiIfNumber(result.verb);
+    const splitted = arg.split(" ");
+    let v;
+
+    parsing:
+    while (v = splitted.shift()) {
+      console.log(v)
+      switch (v[0]) {
+        case "@":
+          result.tags = Object.fromEntries(this.#parseTags(v.slice(1)));
+          break;
+
+        case ":":
+          if (gotVerb) {
+            result.params = [...result.params, [v, ...splitted].join(" ").slice(1).trimEnd()];
+            result.hasTrailing = true;
+            break parsing;
+          }
+          result.source = this.#parseSource(v.slice(1));
+          break;
+
+        default:
+          if (gotVerb) {
+            result.params = [...result.params, v];
+            break;
+          }
+          result.verb = this.#atoiIfNumber(v);
+          gotVerb = true;
+          break;
+      }
+    }
     return result;
   }
 
   stringify(obj) {
     let first = "";
 
-    if (Object.keys(obj.tags).length)
+    if (obj.hasOwnProperty("tags") && Object.keys(obj.tags).length)
       first = `@${Object.entries(obj.tags).flatMap(v => [[this.#escapeIRCTagComponent(v[0]), v[1] === true ? [] : this.#escapeIRCTagComponent(v[1])].flat()]).flatMap(v => [v.join("=")]).join(";")} `;
 
-    if (obj.source.hasOwnProperty("servername"))
-      first += `:${obj.source.servername} `;
-    else if (obj.source.hasOwnProperty("nick"))
-      first += `:${obj.source.nick}${obj.source.hasOwnProperty("user") ? "!" + obj.source.user : ""}${obj.source.hasOwnProperty("host") ? "@" + obj.source.host : ""} `;
-
+    if (obj.hasOwnProperty("source")) {
+      if (obj.source.hasOwnProperty("servername"))
+        first += `:${obj.source.servername} `;
+      else if (obj.source.hasOwnProperty("nick"))
+        first += `:${obj.source.nick}${obj.source.hasOwnProperty("user") ? "!" + obj.source.user : ""}${obj.source.hasOwnProperty("host") ? "@" + obj.source.host : ""} `;
+    }
     return `${first}${obj.verb}${obj.params.flatMap(v => {
       if (v.includes(" ") && v !== obj.params[obj.params.length - 1])
         throw new Error("Invalid params");
-      return [` ${v.includes(" ") ? `:${v}` : v}`];
+      return [` ${obj.hasTrailing && v === obj.params[obj.params.length - 1] ? `:${v}` : v}`];
     }).join("")}${"\r\n"}`;
   }
 }
