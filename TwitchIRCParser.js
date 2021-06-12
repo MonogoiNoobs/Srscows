@@ -80,18 +80,22 @@ export class TwitchIRCParser {
     });
   }
 
+  #popDatumAfterDelimiterTo(prop, input, output, delimiter) {
+    const delimiterPos = input.indexOf(delimiter);
+    if (delimiterPos !== -1) {
+      output[prop] = input.slice(delimiterPos + 1);
+      input = input.slice(0, delimiterPos);
+    }
+    return [input, output];
+  }
+
   #parseSource(arg) {
-    const result = {};
+    let result = {};
     if (!(arg.includes("!") || arg.includes("@")))
       return arg;
-    if (arg.indexOf("@") !== -1) {
-      result.host = arg.slice(arg.indexOf("@") + 1);
-      arg = arg.slice(0, arg.indexOf("@"));
-    }
-    if (arg.indexOf("!") !== -1) {
-      result.user = arg.slice(arg.indexOf("!") + 1);
-      arg = arg.slice(0, arg.indexOf("!"));
-    }
+
+    [arg, result] = this.#popDatumAfterDelimiterTo("host", arg, result, "@");
+    [arg, result] = this.#popDatumAfterDelimiterTo("user", arg, result, "!");
 
     return {
       nickname: arg,
@@ -100,20 +104,19 @@ export class TwitchIRCParser {
   }
 
   parse(arg) {
-    let gotVerb = false;
+    if (!(this.#isALine(arg) || this.#isCRLFEnded(arg)))
+      throw new Error("Invalid syntax");
+
+    arg = arg.replace(/\r\n$/, "");
+
     const result = {
-      tags: {},
-      source: {},
       verb: "",
       params: [],
       hasTrailing: false
     };
-    const splitted = arg.split(" ");
-    let v;
 
     parsing:
-    while (v = splitted.shift()) {
-      console.log(v)
+    for (let splitted = arg.split(" "), v = splitted.shift(), gotVerb = false; v; v = splitted.shift()) {
       switch (v[0]) {
         case "@":
           result.tags = Object.fromEntries(this.#parseTags(v.slice(1)));
@@ -121,7 +124,12 @@ export class TwitchIRCParser {
 
         case ":":
           if (gotVerb) {
-            result.params = [...result.params, [v, ...splitted].join(" ").slice(1).trimEnd()];
+            result.params = [
+              ...result.params,
+              [v, ...splitted]
+                .join(" ")
+                .slice(1)
+            ];
             result.hasTrailing = true;
             break parsing;
           }
@@ -138,21 +146,29 @@ export class TwitchIRCParser {
           break;
       }
     }
+
+    if (!result.params.length)
+      delete result.params, delete result.hasTrailing;
+
     return result;
+  }
+
+  #hasProperty(obj, str) {
+    return {}.propertyIsEnumerable.call(obj, str);
   }
 
   stringify(obj) {
     let first = "";
 
-    if (obj.hasOwnProperty("tags") && Object.keys(obj.tags).length)
+    if (this.#hasProperty(obj, "tags") && Object.keys(obj.tags).length)
       first = `@${Object.entries(obj.tags).flatMap(v => [[this.#escapeIRCTagComponent(v[0]), v[1] === true ? [] : this.#escapeIRCTagComponent(v[1])].flat()]).flatMap(v => [v.join("=")]).join(";")} `;
 
-    if (obj.hasOwnProperty("source")) {
-      if (obj.source.hasOwnProperty("servername"))
-        first += `:${obj.source.servername} `;
-      else if (obj.source.hasOwnProperty("nick"))
-        first += `:${obj.source.nick}${obj.source.hasOwnProperty("user") ? "!" + obj.source.user : ""}${obj.source.hasOwnProperty("host") ? "@" + obj.source.host : ""} `;
-    }
+    if (this.#hasProperty(obj, "source"))
+      if (typeof obj.source === "string")
+        first += `:${obj.source} `;
+      else
+        first += `:${obj.source.nickname}${this.#hasProperty(obj.source, "user") ? "!" + obj.source.user : ""}${this.#hasProperty(obj.source, "host") ? "@" + obj.source.host : ""} `;
+
     return `${first}${obj.verb}${obj.params.flatMap(v => {
       if (v.includes(" ") && v !== obj.params[obj.params.length - 1])
         throw new Error("Invalid params");
