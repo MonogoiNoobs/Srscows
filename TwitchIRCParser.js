@@ -68,7 +68,7 @@ export class TwitchIRCParser {
   }
 
   #parseTags(str) {
-    return str.split(";").flatMap(v => {
+    return Object.fromEntries(str.split(";").flatMap(v => {
       const [_key, ..._value] = v.split("=");
       let key = this.#unescapeIRCTagComponent(_key);
       let value = _value.join("")
@@ -77,7 +77,7 @@ export class TwitchIRCParser {
       key = this.#atoiIfNumber(key);
       value = this.#atoiIfNumber(value);
       return [[key, v.split("=")[1] ? value : true]];
-    });
+    }));
   }
 
   #popDatumAfterDelimiterTo(prop, input, output, delimiter) {
@@ -104,6 +104,8 @@ export class TwitchIRCParser {
   }
 
   parse(arg) {
+    if (!arg.trim()) return {};
+
     if (!(this.#isALine(arg) || this.#isCRLFEnded(arg)))
       throw new Error("Invalid syntax");
 
@@ -119,7 +121,7 @@ export class TwitchIRCParser {
     for (let splitted = arg.split(" "), v = splitted.shift(), gotVerb = false; v; v = splitted.shift()) {
       switch (v[0]) {
         case "@":
-          result.tags = Object.fromEntries(this.#parseTags(v.slice(1)));
+          result.tags = this.#parseTags(v.slice(1));
           break;
 
         case ":":
