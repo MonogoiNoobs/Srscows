@@ -4,7 +4,9 @@
 </p>
 
 # 必要なもの
-* [Google Chrome](https://www.google.com/chrome/)
+* SpeechRecognition が使えるブラウザ
+  * Microsoft Edge
+  * [Google Chrome](https://www.google.com/chrome/)
 * [OBS Studio](https://obsproject.com/)
   * [obs-websocket プラグイン](https://github.com/Palakis/obs-websocket/releases/latest)
 * [ゆかりねっと](http://www.okayulu.moe/) (任意)
