@@ -19,10 +19,7 @@
     margin-left: 1rem;
   }
 
-  #isTranslation:checked+.unseen,
-  #hasYukarinette:checked+.unseen,
-  #hasBouyomiChan:checked+.unseen,
-  #bouyomiChanHasTwitch:checked+.unseen,
+  *:checked+.unseen,
   .unseen label {
     display: block;
   }
@@ -81,17 +78,19 @@
 <p><output id="bcout"></output></p>
 
 <script>
-  const isChrome = globalThis.navigator.userAgent.includes("Chrome/")
+  const isChrome = navigator.userAgent.includes("Chrome/")
     && !(
-      globalThis.navigator.userAgent.includes("Edg/")
-      || globalThis.navigator.userAgent.includes("Mobile")
-      || globalThis.navigator.userAgent.includes("YaBrowser/")
-      || globalThis.navigator.userAgent.includes("Vivaldi/")
-      || globalThis.navigator.userAgent.includes("OPR/")
-      || globalThis.navigator.userAgent.includes("Brave")
+      navigator.userAgent.includes("Edg/")
+      || navigator.userAgent.includes("Mobile")
+      || navigator.userAgent.includes("YaBrowser/")
+      || navigator.userAgent.includes("Vivaldi/")
+      || navigator.userAgent.includes("OPR/")
+      || navigator.userAgent.includes("Brave")
     );
 
-  if (!isChrome) document.body.innerHTML = "<p>Google Chrome 以外のブラウザでは利用できません。";
+  const isEdge = navigator.userAgent.includes("Chrome/") && navigator.userAgent.includes("Edg/");
+
+  if (!(isChrome || isEdge)) document.body.innerHTML = "<p>Edge か Chrome 以外のブラウザでは利用できません。";
 </script>
 
 <script src="./index.js"></script>

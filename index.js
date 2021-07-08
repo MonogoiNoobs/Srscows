@@ -14,11 +14,13 @@ let translatedTimeoutId = null;
 let yukarinette = null;
 
 let isRunning = false;
-let isSpeaking = false;
+let hasRequestedEnd = false;
 
-/**
- * @todo Obviously refactoring is needed
- */
+const sanitizedSpeechRecognition =
+  globalThis[
+  Object.getOwnPropertyNames(globalThis)
+    .find(v => v.includes("SpeechRecognition"))
+  ];
 class TwitchChatVisitor extends WebSocket {
   #privmsgRegExp = /:(\w+)!\w+@\w+\.tmi\.twitch\.tv\sPRIVMSG\s#\w+\s:(.+)/u
   static #glhfRegExp = /^:tmi\.twitch\.tv\s\d{3}\sjustinfan\d{1,4}\s:Welcome,\sGLHF!$/u;
@@ -26,11 +28,7 @@ class TwitchChatVisitor extends WebSocket {
   #channel = null;
 
   constructor() {
-    try {
-      super("wss://irc-ws.chat.twitch.tv:443");
-    } catch (e) {
-      throw new Error("Twitch connection error");
-    }
+    super("wss://irc-ws.chat.twitch.tv:443");
 
     this.addEventListener("open", _ => {
       this.send(`NICK justinfan${Math.trunc(10000 * Math.random())}`);
@@ -78,7 +76,7 @@ class TwitchChatVisitor extends WebSocket {
     return channel != null && /^\w+$/.test(channel);
   }
 
-  static async connect() {
+  static connect() {
     if (TwitchChatVisitor.#singleton) {
       return new Promise(resolve => resolve(TwitchChatVisitor.#singleton));
     }
@@ -109,7 +107,7 @@ const form = document.forms.main.elements;
 
 const hashPromise = arg => crypto.subtle.digest("SHA-256", new TextEncoder().encode(arg));
 
-const buftob = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const buftoa = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
 
 const toggleAll = () => {
   form.submit.toggleAttribute("disabled");
@@ -122,24 +120,26 @@ const toggleAll = () => {
 };
 
 const makeRecognition = () => {
-  recog = Object.assign(new webkitSpeechRecognition(), {
+  recog = Object.assign(new webkitSpeechRecognition() || new SpeechRecognition(), {
     lang: globalThis.navigator.language,
     interimResults: true,
     continuous: true,
   });
 
-  recog.onerror = _ => {
-    if (!isSpeaking) makeRecognition();
+  let isFinal = false;
+
+  recog.onerror = event => {
+    if (isFinal) event.currentTarget.start();
   }
 
-  recog.onsoundend = _ => {
-    makeRecognition();
+  recog.onend = event => {
+    if (!hasRequestedEnd) event.currentTarget.start();
   }
 
-  recog.onresult = event => {
-    isSpeaking = true;
-    const latestTranscript = event.results[event.results.length - 1][0].transcript;
-    const isFinal = event.results[event.results.length - 1].isFinal;
+  recog.onresult = async event => {
+    const currentResult = event.results[event.results.length - 1];
+    const latestTranscript = currentResult[0].transcript;
+    isFinal = currentResult.isFinal;
 
     const prepareTrimming = form.doesTrim.checked ? latestTranscript.replace(japaneseSpacesRegExp, "") : latestTranscript;
     const trimmed = form.doesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareTrimming;
@@ -147,97 +147,101 @@ const makeRecognition = () => {
     if (timeoutId) globalThis.clearTimeout(timeoutId);
     if (translatedTimeoutId) globalThis.clearTimeout(translatedTimeoutId);
 
-    const remaining = form.isBracketed.checked ? `<< ${latestTranscript} >>` : latestTranscript;
-    output.textContent = remaining;
-    obs.send(JSON.stringify({
-      "request-type": `SetText${form.type.value}Properties`,
-      "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-      "source": form.src.value,
-      "text": remaining,
-    }));
+    if (isFinal) {
+      output.textContent = trimmed;
+      obs.send(JSON.stringify({
+        "request-type": `SetText${form.type.value}Properties`,
+        "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+        "source": form.src.value,
+        "text": trimmed,
+      }));
 
-    if (!isFinal) return;
-
-    output.textContent = trimmed;
-    obs.send(JSON.stringify({
-      "request-type": `SetText${form.type.value}Properties`,
-      "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-      "source": form.src.value,
-      "text": trimmed,
-    }));
-
-    const prepareBouyomiChanTrimming = form.bouyomiChanDoesTrim.checked ? latestTranscript.replace(japaneseSpacesRegExp, "") : latestTranscript;
-    const trimmedBouyomiChan = form.bouyomiChanDoesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareBouyomiChanTrimming;
+      const prepareBouyomiChanTrimming = form.bouyomiChanDoesTrim.checked
+        ? latestTranscript.replace(japaneseSpacesRegExp, "")
+        : latestTranscript;
+      const trimmedBouyomiChan = form.bouyomiChanDoesTrimStrangers.checked
+        ? prepareTrimming.replace(strangeSpacesRegExp, "")
+        : prepareBouyomiChanTrimming;
 
 
-    if (form.hasBouyomiChan.checked && !form.bouyomiChanHasTwitch.checked)
-      fetch(`http://localhost:${form.bouyomiChanPort.value}/talk?text=${trimmedBouyomiChan}`, { mode: "no-cors" })
-        .catch(_ => {
-          document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
-        });
+      if (form.hasBouyomiChan.checked && !form.bouyomiChanHasTwitch.checked)
+        fetch(`http://localhost:${form.bouyomiChanPort.value}/talk?text=${trimmedBouyomiChan}`, { mode: "no-cors" })
+          .catch(_ => {
+            document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
+          });
 
-    const prepareYukarinetteTrimming = form.yukarinetteDoesTrim.checked ? latestTranscript.replace(japaneseSpacesRegExp, "") : latestTranscript;
-    const trimmedYukarinette = form.yukarinetteDoesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareYukarinetteTrimming;
+      const prepareYukarinetteTrimming = form.yukarinetteDoesTrim.checked ? latestTranscript.replace(japaneseSpacesRegExp, "") : latestTranscript;
+      const trimmedYukarinette = form.yukarinetteDoesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareYukarinetteTrimming;
 
-    if (form.hasYukarinette.checked && !!yukarinette) yukarinette.send(`0:${trimmedYukarinette}`);
-    if (form.hasYukarinette.checked && !!yukarinette) document.querySelector("#ykout").textContent = `ゆかりねっとに送信: [0:${trimmedYukarinette}]`;
+      if (form.hasYukarinette.checked && !!yukarinette) {
+        yukarinette.send(`0:${trimmedYukarinette}`);
+        document.querySelector("#ykout").textContent = `ゆかりねっとに送信: [0:${trimmedYukarinette}]`;
+      }
 
-    if (form.isTranslation.checked) {
-      fetch(`https://script.google.com/macros/s/${form.gas.value}/exec?text=${latestTranscript}&source=ja&target=en`, {
-        mode: "cors",
-      })
-        .then(res => res.text())
-        .then(translatedTranscript => {
-          translatedOutput.textContent = translatedTranscript;
-          obs.send(JSON.stringify({
-            "request-type": `SetText${form.type.value}Properties`,
-            "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-            "source": form.transrc.value,
-            "text": translatedTranscript,
-          }));
-          if (Number(form.transfadetime.value)) {
-            translatedTimeoutId = globalThis.setTimeout(() => {
-              translatedOutput.textContent = "";
-              if (!obs) return;
-              obs.send(JSON.stringify({
-                "request-type": `SetText${form.type.value}Properties`,
-                "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-                "source": form.transrc.value,
-                "text": "",
-              }));
-            }, Number(form.transfadetime.value));
-          }
-        })
-        .catch(_ => {
+      if (form.isTranslation.checked) {
+        const res = await fetch(`https://script.google.com/macros/s/${form.gas.value}/exec?text=${latestTranscript}&source=ja&target=en`, {
+          mode: "cors",
+        }).catch(_ => {
           translatedOutput.textContent = "翻訳エラー: デプロイ ID が不正です。";
         });
-    }
+        const translatedTranscript = await res.text();
 
-    if (Number(form.fadetime.value)) {
-      timeoutId = globalThis.setTimeout(() => {
-        output.textContent = "";
-        if (!obs) return;
+        translatedOutput.textContent = translatedTranscript;
         obs.send(JSON.stringify({
           "request-type": `SetText${form.type.value}Properties`,
           "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-          "source": form.src.value,
-          "text": "",
+          "source": form.transrc.value,
+          "text": translatedTranscript,
         }));
-      }, Number(form.fadetime.value));
-    }
+        if (Number(form.transfadetime.value)) {
+          translatedTimeoutId = globalThis.setTimeout(() => {
+            translatedOutput.textContent = "";
+            if (!obs) return;
+            obs.send(JSON.stringify({
+              "request-type": `SetText${form.type.value}Properties`,
+              "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+              "source": form.transrc.value,
+              "text": "",
+            }));
+          }, Number(form.transfadetime.value));
+        }
 
-    isSpeaking = false;
-    makeRecognition();
+
+      }
+
+      if (Number(form.fadetime.value)) {
+        timeoutId = globalThis.setTimeout(() => {
+          output.textContent = "";
+          if (!obs) return;
+          obs.send(JSON.stringify({
+            "request-type": `SetText${form.type.value}Properties`,
+            "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+            "source": form.src.value,
+            "text": "",
+          }));
+        }, Number(form.fadetime.value));
+      }
+    } else {
+      const remaining = form.isBracketed.checked ? `<< ${latestTranscript} >>` : latestTranscript;
+      output.textContent = remaining;
+      obs.send(JSON.stringify({
+        "request-type": `SetText${form.type.value}Properties`,
+        "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+        "source": form.src.value,
+        "text": remaining,
+      }));
+    }
 
   };
 
+  hasRequestedEnd = false;
   recog.start();
 };
 
 const afterConnected = () => {
   isRunning = true;
   output.textContent = "*READY*";
-  isSpeaking = false;
+  translatedOutput.textContent = "";
 
   makeRecognition();
 }
@@ -287,7 +291,7 @@ const submit = event => {
 
   }
 
-  if (form.hasYukarinette.checked && !!!yukarinette) {
+  if (form.hasYukarinette.checked && !yukarinette) {
     yukarinette = Object.assign(new WebSocket(`ws://localhost:${Number(form.yukarinettePort.value)}`), {
       onopen() {
         document.querySelector("#ykout").textContent = "ゆかりねっとに接続しました。";
@@ -323,11 +327,11 @@ const submit = event => {
       case "srscows-getauthrequired": {
         if (message.authRequired) {
           hashPromise(`${form.pass.value}${message.salt}`).then(passsalt => {
-            hashPromise(`${buftob(passsalt)}${message.challenge}`).then(auth => {
+            hashPromise(`${buftoa(passsalt)}${message.challenge}`).then(auth => {
               obs.send(JSON.stringify({
                 "request-type": "Authenticate",
                 "message-id": "srscows-authenticate",
-                auth: buftob(auth),
+                auth: buftoa(auth),
               }));
             })
           })
@@ -350,7 +354,6 @@ const submit = event => {
     isRunning = false;
     toggleAll();
     output.textContent = `[ERROR] ${event.message ?? "OBS が起動していないか、ポート番号が間違っています。"}`;
-    if (recog) recog.stop();
     cleanup();
   };
 };
@@ -358,6 +361,9 @@ const submit = event => {
 
 const cleanup = () => {
   isRunning = false;
+  hasRequestedEnd = true;
+  if (timeoutId) globalThis.clearTimeout(timeoutId);
+  if (translatedTimeoutId) globalThis.clearTimeout(translatedTimeoutId);
   if (obs) {
     obs.send(JSON.stringify({
       "request-type": `SetText${form.type.value}Properties`,
@@ -366,6 +372,7 @@ const cleanup = () => {
       "text": "",
     }));
     output.textContent = "";
+    translatedOutput.textContent = "";
     if (form.isTranslation.checked) {
       obs.send(JSON.stringify({
         "request-type": `SetText${form.type.value}Properties`,
@@ -373,7 +380,6 @@ const cleanup = () => {
         "source": form.transrc.value,
         "text": "",
       }));
-      translatedOutput.textContent = "";
     }
     obs.close();
     obs = null;
