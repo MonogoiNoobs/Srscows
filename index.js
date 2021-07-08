@@ -16,11 +16,6 @@ let yukarinette = null;
 let isRunning = false;
 let hasRequestedEnd = false;
 
-const sanitizedSpeechRecognition =
-  globalThis[
-  Object.getOwnPropertyNames(globalThis)
-    .find(v => v.includes("SpeechRecognition"))
-  ];
 class TwitchChatVisitor extends WebSocket {
   #privmsgRegExp = /:(\w+)!\w+@\w+\.tmi\.twitch\.tv\sPRIVMSG\s#\w+\s:(.+)/u
   static #glhfRegExp = /^:tmi\.twitch\.tv\s\d{3}\sjustinfan\d{1,4}\s:Welcome,\sGLHF!$/u;
@@ -129,7 +124,7 @@ const makeRecognition = () => {
   let isFinal = false;
 
   recog.onerror = event => {
-    if (isFinal) event.currentTarget.start();
+    event.currentTarget.start();
   }
 
   recog.onend = event => {
