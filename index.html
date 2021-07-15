@@ -68,6 +68,12 @@
         <label>チャンネル ID: <input type="text" id="bouyomiChanTwitchId"></label>
         <label>敬称: <input type="text" id="bouyomiChanTwitchHonorific" value="さん"></label>
       </span></p>
+    <p><label>ハートビート間隔(ミリ秒、0 で無効化): <input type="number" min="0" id="heartbeattime" value="3000"
+          oninput="this.parentNode.parentNode.querySelector('output').textContent = ` = ${this.value / 1000} 秒`"><output></output></label>
+    </p>
+    <p><label>認識結果確定までのタイムアウト(ミリ秒、0 で無効化): <input type="number" min="0" id="timeouttime" value="2000"
+          oninput="this.parentNode.parentNode.querySelector('output').textContent = ` = ${this.value / 1000} 秒`"><output></output></label>
+    </p>
   </fieldset>
   <p><button type="cancel" id="cancel" disabled>切断</button><button type="submit" id="submit">接続</button></p>
 </form>
@@ -93,4 +99,4 @@
   if (!(isChrome || isEdge)) document.body.innerHTML = "<p>Edge か Chrome 以外のブラウザでは利用できません。";
 </script>
 
-<script src="./index.js"></script>
+<script src="./index.js" type="module"></script>

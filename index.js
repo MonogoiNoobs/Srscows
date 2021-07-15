@@ -2,96 +2,19 @@
  * @license 0BSD
  */
 
-"use strict";
+import { TwitchChatVisitor } from "./TwitchChatVisitor.js";
+import { EasyRecognition } from "./EasyRecognition.js";
 
 let obs = null;
 
-let recog;
+const recog = new EasyRecognition();
 
-let timeoutId = null;
-let translatedTimeoutId = null;
+let timeoutId = 0;
+let translatedTimeoutId = 0;
 
 let yukarinette = null;
 
 let isRunning = false;
-let hasRequestedEnd = false;
-
-class TwitchChatVisitor extends WebSocket {
-  #privmsgRegExp = /:(\w+)!\w+@\w+\.tmi\.twitch\.tv\sPRIVMSG\s#\w+\s:(.+)/u
-  static #glhfRegExp = /^:tmi\.twitch\.tv\s\d{3}\sjustinfan\d{1,4}\s:Welcome,\sGLHF!$/u;
-  static #singleton = null;
-  #channel = null;
-
-  constructor() {
-    super("wss://irc-ws.chat.twitch.tv:443");
-
-    this.addEventListener("open", _ => {
-      this.send(`NICK justinfan${Math.trunc(10000 * Math.random())}`);
-    }, { once: true });
-  }
-
-  join(channel) {
-    if (this.#channel) {
-      this.part();
-    };
-    if (!this.isValidChannelName(channel)) throw new Error("invalid channel as fuck");
-    this.#channel = channel;
-    this.send(`JOIN #${this.#channel}`);
-    this.addEventListener("message", this.messageCallback, false);
-    console.log("joined as fuck:", channel)
-  }
-
-  part() {
-    if (!this.#channel) throw new Error("not joined as fuck for the fucj");
-    this.send(`PART #${this.#channel}`);
-    this.#channel = null;
-    this.removeEventListener("message", this.messageCallback, false);
-    console.log("parted as fuck")
-  }
-
-  messageCallback(event) {
-    const data = event.data.trim();
-
-    if (data === "PING :tmi.twitch.tv") {
-      this.send("PONG :tmi.twitch.tv");
-      return;
-    }
-    const filtered = this.#privmsgRegExp.exec(data);
-    if (filtered) {
-      this.dispatchEvent(new MessageEvent("chat", {
-        data: {
-          name: filtered[1],
-          chat: filtered[2],
-        }
-      }))
-    }
-  }
-
-  isValidChannelName(channel) {
-    return channel != null && /^\w+$/.test(channel);
-  }
-
-  static connect() {
-    if (TwitchChatVisitor.#singleton) {
-      return new Promise(resolve => resolve(TwitchChatVisitor.#singleton));
-    }
-    return new Promise((resolve, reject) => {
-      const glhfEvent = event => {
-        if (TwitchChatVisitor.#glhfRegExp.test(event.data.split("\n")[0].trim())) {
-          event.target.removeEventListener("message", glhfEvent, false);
-          console.log("resolved")
-          resolve(event.target);
-        }
-      }
-      try {
-        TwitchChatVisitor.#singleton = new TwitchChatVisitor();
-        TwitchChatVisitor.#singleton.addEventListener("message", glhfEvent, false);
-      } catch (e) {
-        reject(e);
-      }
-    })
-  }
-}
 
 const japaneseSpacesRegExp = /(?<=[^!-~])\s(?=[^!-~])/gu;
 const strangeSpacesRegExp = /(?:(?<=[!-~])\s(?=[^!-~])|(?<=[^!-~])\s(?=[!-~]))/gu;
@@ -114,131 +37,111 @@ const toggleAll = () => {
   }
 };
 
-const makeRecognition = () => {
-  recog = Object.assign(new webkitSpeechRecognition() || new SpeechRecognition(), {
-    lang: globalThis.navigator.language,
-    interimResults: true,
-    continuous: true,
-  });
+recog.addEventListener("message", async event => {
+  const { transcript, isFinal } = event.data;
 
-  let isFinal = false;
+  const prepareTrimming = form.doesTrim.checked ? transcript.replace(japaneseSpacesRegExp, "") : transcript;
+  const trimmed = form.doesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareTrimming;
 
-  recog.onerror = event => {
-    event.currentTarget.start();
-  }
+  clearTimeout(timeoutId);
+  clearTimeout(translatedTimeoutId);
 
-  recog.onend = event => {
-    if (!hasRequestedEnd) event.currentTarget.start();
-  }
+  if (isFinal) {
+    output.textContent = trimmed;
+    obs.send(JSON.stringify({
+      "request-type": `SetText${form.type.value}Properties`,
+      "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+      "source": form.src.value,
+      "text": trimmed,
+    }));
 
-  recog.onresult = async event => {
-    const currentResult = event.results[event.results.length - 1];
-    const latestTranscript = currentResult[0].transcript;
-    isFinal = currentResult.isFinal;
-
-    const prepareTrimming = form.doesTrim.checked ? latestTranscript.replace(japaneseSpacesRegExp, "") : latestTranscript;
-    const trimmed = form.doesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareTrimming;
-
-    if (timeoutId) globalThis.clearTimeout(timeoutId);
-    if (translatedTimeoutId) globalThis.clearTimeout(translatedTimeoutId);
-
-    if (isFinal) {
-      output.textContent = trimmed;
-      obs.send(JSON.stringify({
-        "request-type": `SetText${form.type.value}Properties`,
-        "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-        "source": form.src.value,
-        "text": trimmed,
-      }));
-
-      const prepareBouyomiChanTrimming = form.bouyomiChanDoesTrim.checked
-        ? latestTranscript.replace(japaneseSpacesRegExp, "")
-        : latestTranscript;
-      const trimmedBouyomiChan = form.bouyomiChanDoesTrimStrangers.checked
-        ? prepareTrimming.replace(strangeSpacesRegExp, "")
-        : prepareBouyomiChanTrimming;
+    const prepareBouyomiChanTrimming = form.bouyomiChanDoesTrim.checked
+      ? transcript.replace(japaneseSpacesRegExp, "")
+      : transcript;
+    const trimmedBouyomiChan = form.bouyomiChanDoesTrimStrangers.checked
+      ? prepareTrimming.replace(strangeSpacesRegExp, "")
+      : prepareBouyomiChanTrimming;
 
 
-      if (form.hasBouyomiChan.checked && !form.bouyomiChanHasTwitch.checked)
-        fetch(`http://localhost:${form.bouyomiChanPort.value}/talk?text=${trimmedBouyomiChan}`, { mode: "no-cors" })
-          .catch(_ => {
-            document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
-          });
-
-      const prepareYukarinetteTrimming = form.yukarinetteDoesTrim.checked ? latestTranscript.replace(japaneseSpacesRegExp, "") : latestTranscript;
-      const trimmedYukarinette = form.yukarinetteDoesTrimStrangers.checked ? prepareTrimming.replace(strangeSpacesRegExp, "") : prepareYukarinetteTrimming;
-
-      if (form.hasYukarinette.checked && !!yukarinette) {
-        yukarinette.send(`0:${trimmedYukarinette}`);
-        document.querySelector("#ykout").textContent = `ゆかりねっとに送信: [0:${trimmedYukarinette}]`;
-      }
-
-      if (form.isTranslation.checked) {
-        const res = await fetch(`https://script.google.com/macros/s/${form.gas.value}/exec?text=${latestTranscript}&source=ja&target=en`, {
-          mode: "cors",
-        }).catch(_ => {
-          translatedOutput.textContent = "翻訳エラー: デプロイ ID が不正です。";
+    if (form.hasBouyomiChan.checked && !form.bouyomiChanHasTwitch.checked)
+      fetch(`http://localhost:${form.bouyomiChanPort.value}/talk?text=${trimmedBouyomiChan}`, { mode: "no-cors" })
+        .catch(_ => {
+          document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
         });
-        const translatedTranscript = await res.text();
 
-        translatedOutput.textContent = translatedTranscript;
+    const prepareYukarinetteTrimming = form.yukarinetteDoesTrim.checked
+      ? transcript.replace(japaneseSpacesRegExp, "")
+      : transcript;
+    const trimmedYukarinette = form.yukarinetteDoesTrimStrangers.checked
+      ? prepareTrimming.replace(strangeSpacesRegExp, "")
+      : prepareYukarinetteTrimming;
+
+    if (form.hasYukarinette.checked && !!yukarinette) {
+      yukarinette.send(`0:${trimmedYukarinette}`);
+      document.querySelector("#ykout").textContent = `ゆかりねっとに送信: [0:${trimmedYukarinette}]`;
+    }
+
+    if (Number(form.fadetime.value)) {
+      timeoutId = setTimeout(() => {
+        output.textContent = "";
+        if (!obs) return;
         obs.send(JSON.stringify({
           "request-type": `SetText${form.type.value}Properties`,
           "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-          "source": form.transrc.value,
-          "text": translatedTranscript,
+          "source": form.src.value,
+          "text": "",
         }));
-        if (Number(form.transfadetime.value)) {
-          translatedTimeoutId = globalThis.setTimeout(() => {
-            translatedOutput.textContent = "";
-            if (!obs) return;
-            obs.send(JSON.stringify({
-              "request-type": `SetText${form.type.value}Properties`,
-              "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-              "source": form.transrc.value,
-              "text": "",
-            }));
-          }, Number(form.transfadetime.value));
-        }
+      }, Number(form.fadetime.value));
+    }
 
+    if (form.isTranslation.checked) {
+      const res = await fetch(`https://script.google.com/macros/s/${form.gas.value}/exec?text=${transcript}&source=ja&target=en`, {
+        mode: "cors",
+      }).catch(_ => {
+        translatedOutput.textContent = "翻訳エラー: デプロイ ID が不正です。";
+      });
+      const translatedTranscript = await res.text();
 
-      }
-
-      if (Number(form.fadetime.value)) {
-        timeoutId = globalThis.setTimeout(() => {
-          output.textContent = "";
+      translatedOutput.textContent = translatedTranscript;
+      obs.send(JSON.stringify({
+        "request-type": `SetText${form.type.value}Properties`,
+        "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+        "source": form.transrc.value,
+        "text": translatedTranscript,
+      }));
+      if (Number(form.transfadetime.value)) {
+        translatedTimeoutId = setTimeout(() => {
+          translatedOutput.textContent = "";
           if (!obs) return;
           obs.send(JSON.stringify({
             "request-type": `SetText${form.type.value}Properties`,
             "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-            "source": form.src.value,
+            "source": form.transrc.value,
             "text": "",
           }));
-        }, Number(form.fadetime.value));
+        }, Number(form.transfadetime.value));
       }
-    } else {
-      const remaining = form.isBracketed.checked ? `<< ${latestTranscript} >>` : latestTranscript;
-      output.textContent = remaining;
-      obs.send(JSON.stringify({
-        "request-type": `SetText${form.type.value}Properties`,
-        "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
-        "source": form.src.value,
-        "text": remaining,
-      }));
     }
-
-  };
-
-  hasRequestedEnd = false;
-  recog.start();
-};
+  } else {
+    const remaining = form.isBracketed.checked ? `<< ${transcript} >>` : transcript;
+    output.textContent = remaining;
+    obs.send(JSON.stringify({
+      "request-type": `SetText${form.type.value}Properties`,
+      "message-id": `srscows-settext${form.type.value.toLowerCase()}properties`,
+      "source": form.src.value,
+      "text": remaining,
+    }));
+  }
+});
 
 const afterConnected = () => {
   isRunning = true;
   output.textContent = "*READY*";
   translatedOutput.textContent = "";
 
-  makeRecognition();
+  recog.timeout = Number(form.timeouttime.value);
+  recog.interval = Number(form.heartbeattime.value);
+  recog.start();
 }
 
 const isValid = elements => {
@@ -259,7 +162,6 @@ const submit = event => {
   }
 
   if (form.bouyomiChanHasTwitch.checked) {
-
     TwitchChatVisitor.connect()
       .then(twitch => {
         const chat = event => {
@@ -273,7 +175,7 @@ const submit = event => {
         twitch.join(form.bouyomiChanTwitchId.value);
         twitch.addEventListener("chat", chat, false);
 
-        const fuckoff = event => {
+        const fuckoff = _ => {
           twitch.part();
           twitch.removeEventListener("chat", chat, false);
           console.log("Twitch disconnected as fuck")
@@ -283,7 +185,6 @@ const submit = event => {
       }).catch(e => {
         document.querySelector("#bcout").textContent = `Twitch との接続に失敗しました: ${e}`;
       });
-
   }
 
   if (form.hasYukarinette.checked && !yukarinette) {
@@ -343,8 +244,6 @@ const submit = event => {
     }
   };
 
-
-
   obs.onerror = event => {
     isRunning = false;
     toggleAll();
@@ -356,9 +255,9 @@ const submit = event => {
 
 const cleanup = () => {
   isRunning = false;
-  hasRequestedEnd = true;
-  if (timeoutId) globalThis.clearTimeout(timeoutId);
-  if (translatedTimeoutId) globalThis.clearTimeout(translatedTimeoutId);
+  recog.stop();
+  clearTimeout(timeoutId);
+  clearTimeout(translatedTimeoutId);
   if (obs) {
     obs.send(JSON.stringify({
       "request-type": `SetText${form.type.value}Properties`,
@@ -380,7 +279,6 @@ const cleanup = () => {
     obs = null;
   }
   document.querySelector("#bcout").textContent = "";
-  if (recog) recog.stop();
   document.dispatchEvent(new CustomEvent("twitchyousuck"));
 };
 
