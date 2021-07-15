@@ -178,7 +178,6 @@ const submit = event => {
         const fuckoff = _ => {
           twitch.part();
           twitch.removeEventListener("chat", chat, false);
-          console.log("Twitch disconnected as fuck")
         };
 
         document.addEventListener("twitchyousuck", fuckoff, { once: true });
@@ -291,7 +290,6 @@ form.cancel.addEventListener("click", event => {
 }, false);
 
 window.addEventListener("unload", _ => {
-  console.log("cleanup");
   cleanup();
   form.field.setAttlibute("disabled");
   if (yukarinette) yukarinette.close();

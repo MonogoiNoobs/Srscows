@@ -20,7 +20,6 @@ export class TwitchChatVisitor extends WebSocket {
     this.#channel = channel;
     this.send(`JOIN #${this.#channel}`);
     this.addEventListener("message", this.messageCallback, false);
-    console.log("joined as fuck:", channel)
   }
 
   part() {
@@ -28,7 +27,6 @@ export class TwitchChatVisitor extends WebSocket {
     this.send(`PART #${this.#channel}`);
     this.#channel = null;
     this.removeEventListener("message", this.messageCallback, false);
-    console.log("parted as fuck")
   }
 
   messageCallback(event) {
@@ -61,7 +59,6 @@ export class TwitchChatVisitor extends WebSocket {
       const glhfEvent = event => {
         if (TwitchChatVisitor.#glhfRegExp.test(event.data.split("\n")[0].trim())) {
           event.target.removeEventListener("message", glhfEvent, false);
-          console.log("resolved")
           resolve(event.target);
         }
       }
