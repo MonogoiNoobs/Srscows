@@ -17,13 +17,11 @@ export class EasyRecognition extends EventTarget {
     this.interval = Number(interval);
 
     this.recog.addEventListener("start", _ => {
-      console.log("start")
       this.hasRequestedEnding = false;
       if (this.interval) this.intervalId = setInterval(this.intervalCallback.bind(this), this.interval);
     })
 
     this.recog.addEventListener("end", event => {
-      console.log("end!")
       clearTimeout(this.timeoutId);
       clearInterval(this.intervalId);
       if (!this.hasRequestedEnding) event.currentTarget.start();
@@ -55,12 +53,10 @@ export class EasyRecognition extends EventTarget {
   }
 
   intervalCallback() {
-    console.log("reload");
     this.recog.stop();
   }
 
   timeoutCallback(transcript) {
-    console.log("timeout");
     this.dispatchEvent(new MessageEvent("message", { data: { transcript, isFinal: true } }));
     this.isFinal = true;
     this.recog.stop();
