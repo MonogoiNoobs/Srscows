@@ -6,13 +6,19 @@ export class IRCParser {
   static Numerics = Numerics;
 
   #doesParseSources = true;
-  #doesTryAtoi = false;
+  #doesTryAtoi = true;
+  #doesRequireStrictHost = true;
+  #doesRequireCRLFEnded = true;
+  #doesTryConvertKebabTagKeysToCamel = true;
 
-  // #hostRegExp = /^(?:localhost|(?:[12]\d{2}|[1-9]\d|[1-9])(?:\.(?:[12]\d{2}|[1-9]\d|\d)){3}|(?:(?:[a-z\d][_a-z\d-]*[a-z\d]|[a-z\d])(?:\.[a-z\d][_a-z\d-]*[a-z\d]|\.[a-z\d])+))$/iu;
+  #hostRegExp = /^(?:localhost|(?:[12]\d{2}|[1-9]\d|[1-9])(?:\.(?:[12]\d{2}|[1-9]\d|\d)){3}|(?:(?:[a-z\d][_a-z\d-]*[a-z\d]|[a-z\d])(?:\.[a-z\d][_a-z\d-]*[a-z\d]|\.[a-z\d])+))$/iu;
 
-  constructor({ doesParseSources, doesTryAtoi } = { doesParseSources: true, doesTryAtoi: false }) {
-    this.#doesParseSources = doesParseSources;
-    this.#doesTryAtoi = doesTryAtoi;
+  constructor(obj) {
+    this.#doesParseSources = obj?.doesParseSources ?? true;
+    this.#doesTryAtoi = obj?.doesTryAtoi ?? true;
+    this.#doesRequireStrictHost = obj?.doesRequireStrictHost ?? true;
+    this.#doesRequireCRLFEnded = obj?.doesRequireCRLFEnded ?? true;
+    this.#doesTryConvertKebabTagKeysToCamel = obj?.doesTryConvertKebabTagKeysToCamel ?? true;
   }
 
   #escapeIRCTagComponent(arg) {
@@ -51,6 +57,7 @@ export class IRCParser {
   #parseTags(str) {
     return Object.fromEntries(str.split(";").map(v => {
       let [key, ...value] = this.#unescapeIRCTagComponent(v).split("=");
+      key = this.#doesTryConvertKebabTagKeysToCamel ? key.replace(/-./g, x => x.toUpperCase()[1]) : key;
       value = value.length
         ? value.join("")
         : "";
@@ -75,6 +82,9 @@ export class IRCParser {
     [arg, result] = this.#popDatumAfterDelimiterTo("host", arg, result, "@");
     [arg, result] = this.#popDatumAfterDelimiterTo("user", arg, result, "!");
 
+    if (this.#doesRequireStrictHost && this.#hasProperty(result, "host") && !this.#hostRegExp.test(result.host))
+      throw new TypeError("Invalid host");
+
     return {
       nick: arg,
       ...result
@@ -84,8 +94,8 @@ export class IRCParser {
   parse(arg) {
     if (!arg.trim()) return {};
 
-    // if (!(this.#isALine(arg) || arg.endsWith("\r\n")))
-    //   throw new Error("Invalid syntax");
+    if (this.#doesRequireCRLFEnded && !arg.endsWith("\r\n"))
+      throw new Error("Invalid syntax");
 
     arg = arg.replace(/\r\n$/, "");
 
@@ -158,8 +168,8 @@ export class IRCParser {
         result += this.#hasProperty(obj.source, "nick") ? obj.source.nick : "";
         result += this.#hasProperty(obj.source, "user") ? "!" + obj.source.user : "";
         result += this.#hasProperty(obj.source, "host") ? "@" + obj.source.host : "";
-        // if (this.#hasProperty(obj.source, "host") && !this.#hostRegExp.test(obj.source.host))
-        //   throw new TypeError("Invalid host");
+        if (this.#doesRequireStrictHost && this.#hasProperty(obj.source, "host") && !this.#hostRegExp.test(obj.source.host))
+          throw new TypeError("Invalid host");
       }
 
       result += " ";
@@ -179,7 +189,7 @@ export class IRCParser {
         .join(" ");
     }
 
-    result += "\r\n";
+    if (this.#doesRequireCRLFEnded) result += "\r\n";
 
     return result;
   }
