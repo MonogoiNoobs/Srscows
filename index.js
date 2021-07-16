@@ -4,6 +4,7 @@
 
 import { TwitchChatVisitor } from "./TwitchChatVisitor.js";
 import { EasyRecognition } from "./EasyRecognition.js";
+import { BouyomiChan } from "./BouyomiChan.js";
 
 let obs = null;
 
@@ -166,13 +167,13 @@ const submit = event => {
       .then(twitch => {
         const chat = event => {
           const built = `${event.data.name}${form.bouyomiChanTwitchHonorific.value}、${event.data.chat}`;
-          document.querySelector("#bcout").textContent = `棒読みちゃんへ送信: [${built}]`
+          document.querySelector("#bcout").textContent = `棒読みちゃんへ送信: [${built}]`;
           fetch(`http://localhost:${form.bouyomiChanTwitchPort.value}/talk?text=${built}`, { mode: "no-cors" })
             .catch(_ => {
               document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
             });
         };
-        twitch.join(form.bouyomiChanTwitchId.value);
+        twitch.join(form.bouyomiChanTwitchId.value.split(" "));
         twitch.addEventListener("chat", chat, false);
 
         const fuckoff = _ => {

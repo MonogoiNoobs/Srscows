@@ -4,6 +4,7 @@ export class EasyRecognition extends EventTarget {
   intervalId = 0;
   timeout = 0;
   interval = 0;
+  isTimeoutFired = false;
   hasRequestedEnding = false;
   recog = new webkitSpeechRecognition() ?? new SpeechRecognition();
 
@@ -32,6 +33,10 @@ export class EasyRecognition extends EventTarget {
     });
 
     this.recog.addEventListener("result", event => {
+      if (this.isTimeoutFired) {
+        this.isTimeoutFired = false;
+        return;
+      }
       const currentResult = event.results[event.results.length - 1];
       this.isFinal = currentResult.isFinal;
 
@@ -57,6 +62,7 @@ export class EasyRecognition extends EventTarget {
   }
 
   timeoutCallback(transcript) {
+    this.isTimeoutFired = true;
     this.dispatchEvent(new MessageEvent("message", { data: { transcript, isFinal: true } }));
     this.isFinal = true;
     this.recog.stop();
