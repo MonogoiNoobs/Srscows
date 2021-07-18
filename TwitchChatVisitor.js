@@ -47,7 +47,7 @@ export class TwitchChatVisitor extends WebSocket {
         break;
 
       case IRCParser.Verbs.PING:
-        event.currentTarget.send(parser.stringify({
+        event.currentTarget.send(this.#parser.stringify({
           verb: IRCParser.Verbs.PONG,
           params: ["tmi.twitch.tv"]
         }).trimEnd());
