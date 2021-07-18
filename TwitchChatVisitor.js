@@ -50,7 +50,7 @@ export class TwitchChatVisitor extends WebSocket {
         event.currentTarget.send(parser.stringify({
           verb: IRCParser.Verbs.PONG,
           params: data.params
-        }));
+        }).trimEnd());
         break;
     }
   }
