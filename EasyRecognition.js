@@ -1,5 +1,4 @@
 export class EasyRecognition extends EventTarget {
-  isFinal = false;
   timeoutId = 0;
   intervalId = 0;
   timeout = 0;
@@ -10,7 +9,7 @@ export class EasyRecognition extends EventTarget {
 
   constructor({ timeout, interval } = { timeout: 2000, interval: 5000 }) {
     super();
-    this.recog.lang = globalThis.navigator.language;
+    this.recog.lang = navigator.language;
     this.recog.interimResults = true;
     this.recog.continuous = true;
 
@@ -19,13 +18,17 @@ export class EasyRecognition extends EventTarget {
 
     this.recog.addEventListener("start", _ => {
       this.hasRequestedEnding = false;
-      if (this.interval) this.intervalId = setInterval(this.intervalCallback.bind(this), this.interval);
+
+      if (this.interval)
+        this.intervalId = setInterval(this.intervalCallback.bind(this), this.interval);
     })
 
     this.recog.addEventListener("end", event => {
       clearTimeout(this.timeoutId);
       clearInterval(this.intervalId);
-      if (!this.hasRequestedEnding) event.currentTarget.start();
+
+      if (!this.hasRequestedEnding)
+        event.currentTarget.start();
     });
 
     this.recog.addEventListener("result", event => {
@@ -33,23 +36,31 @@ export class EasyRecognition extends EventTarget {
         this.isTimeoutFired = false;
         return;
       }
-      const currentResult = event.results[event.results.length - 1];
-      this.isFinal = currentResult.isFinal;
 
-      const message = {
-        data: {
-          transcript: currentResult[0].transcript,
-          isFinal: currentResult.isFinal,
-        }
-      };
+      const currentResult = event.results[event.results.length - 1];
+      const {
+        0: {
+          transcript
+        },
+        isFinal
+      } = currentResult;
 
       clearTimeout(this.timeoutId);
-      if (!this.isFinal && this.timeout) this.timeoutId = setTimeout(this.timeoutCallback.bind(this), this.timeout, currentResult[0].transcript)
+      if (!isFinal && this.timeout)
+        this.timeoutId = setTimeout(this.timeoutCallback.bind(this), this.timeout, transcript)
 
       clearInterval(this.intervalId);
-      if (this.interval) this.intervalId = setInterval(this.intervalCallback.bind(this), this.interval);
+      if (this.interval)
+        this.intervalId = setInterval(this.intervalCallback.bind(this), this.interval);
 
-      this.dispatchEvent(new MessageEvent("message", message));
+      this.dispatchEvent(
+        new MessageEvent("message", {
+          data: {
+            transcript,
+            isFinal
+          }
+        })
+      );
     }, false);
   }
 
@@ -59,8 +70,14 @@ export class EasyRecognition extends EventTarget {
 
   timeoutCallback(transcript) {
     this.isTimeoutFired = true;
-    this.dispatchEvent(new MessageEvent("message", { data: { transcript, isFinal: true } }));
-    this.isFinal = true;
+    this.dispatchEvent(
+      new MessageEvent("message", {
+        data: {
+          transcript,
+          isFinal: true
+        }
+      })
+    );
     this.recog.stop();
   }
 
