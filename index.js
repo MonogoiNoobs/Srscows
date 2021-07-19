@@ -4,7 +4,6 @@
 
 import { TwitchChatVisitor } from "./TwitchChatVisitor.js";
 import { EasyRecognition } from "./EasyRecognition.js";
-import { BouyomiChan } from "./BouyomiChan.js";
 
 let obs = null;
 
@@ -15,8 +14,6 @@ let translatedTimeoutId = 0;
 
 let yukarinette = null;
 
-let isRunning = false;
-
 const japaneseSpacesRegExp = /(?<=[^!-~])\s(?=[^!-~])/gu;
 const strangeSpacesRegExp = /(?:(?<=[!-~])\s(?=[^!-~])|(?<=[^!-~])\s(?=[!-~]))/gu;
 
@@ -24,9 +21,7 @@ const output = document.querySelector("#stdout");
 const translatedOutput = document.querySelector("#trans");
 const form = document.forms.main.elements;
 
-const hashPromise = arg => crypto.subtle.digest("SHA-256", new TextEncoder().encode(arg));
-
-const buftoa = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const digest = async str => btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)))))
 
 const toggleAll = () => {
   form.submit.toggleAttribute("disabled");
@@ -136,7 +131,6 @@ recog.addEventListener("message", async event => {
 });
 
 const afterConnected = () => {
-  isRunning = true;
   output.textContent = "*READY*";
   translatedOutput.textContent = "";
 
@@ -153,7 +147,7 @@ const isValid = elements => {
   return true;
 };
 
-const submit = event => {
+const submit = async event => {
   event.preventDefault();
   toggleAll();
 
@@ -163,74 +157,68 @@ const submit = event => {
   }
 
   if (form.bouyomiChanHasTwitch.checked) {
-    TwitchChatVisitor.connect()
-      .then(twitch => {
-        const chat = event => {
-          const built = `${event.data.name}${form.bouyomiChanTwitchHonorific.value}、${event.data.chat}`;
-          document.querySelector("#bcout").textContent = `棒読みちゃんへ送信: [${built}]`;
-          fetch(`http://localhost:${form.bouyomiChanTwitchPort.value}/talk?text=${built}`, { mode: "no-cors" })
-            .catch(_ => {
-              document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
-            });
-        };
-        twitch.join(form.bouyomiChanTwitchId.value.split(" "));
-        twitch.addEventListener("chat", chat, false);
-
-        const fuckoff = _ => {
-          twitch.part();
-          twitch.removeEventListener("chat", chat, false);
-        };
-
-        document.addEventListener("twitchyousuck", fuckoff, { once: true });
-      }).catch(e => {
+    const twitch = await TwitchChatVisitor
+      .connect()
+      .catch(e => {
         document.querySelector("#bcout").textContent = `Twitch との接続に失敗しました: ${e}`;
       });
+
+    const chat = event => {
+      const built = `${event.data.name}${form.bouyomiChanTwitchHonorific.value}、${event.data.chat}`;
+      document.querySelector("#bcout").textContent = `棒読みちゃんへ送信: [${built}]`;
+      fetch(`http://localhost:${form.bouyomiChanTwitchPort.value}/talk?text=${built}`, { mode: "no-cors" })
+        .catch(_ => {
+          document.querySelector("#bcout").textContent = "棒読みちゃんとの接続に失敗しました。";
+        });
+    };
+    twitch.join(form.bouyomiChanTwitchId.value.split(" "));
+    twitch.addEventListener("chat", chat, false);
+
+    const fuckoff = _ => {
+      twitch.part();
+      twitch.removeEventListener("chat", chat, false);
+    };
+
+    document.addEventListener("twitchyousuck", fuckoff, { once: true });
   }
 
   if (form.hasYukarinette.checked && !yukarinette) {
-    yukarinette = Object.assign(new WebSocket(`ws://localhost:${Number(form.yukarinettePort.value)}`), {
-      onopen() {
-        document.querySelector("#ykout").textContent = "ゆかりねっとに接続しました。";
-      },
-      onerror() {
-        document.querySelector("#ykout").textContent = "ゆかりねっととの接続に失敗しました。";
-        yukarinette = null;
-        if (!isRunning) {
-          form.yukarinettePort.removeAttribute("disabled");
-        }
-      },
+    yukarinette = new WebSocket(`ws://localhost:${form.yukarinettePort.value}`);
+    yukarinette.addEventListener("open", _ => {
+      document.querySelector("#ykout").textContent = "ゆかりねっとに接続しました。";
+    });
+    yukarinette.addEventListener("error", _ => {
+      document.querySelector("#ykout").textContent = "ゆかりねっととの接続に失敗しました。";
+      yukarinette = null;
     });
   }
 
   obs = new WebSocket(`ws://localhost:${form.port.value}`);
 
-  obs.onopen = () => {
-    obs.send(JSON.stringify({
+  obs.addEventListener("open", event => {
+    event.currentTarget.send(JSON.stringify({
       "request-type": "GetAuthRequired",
       "message-id": "srscows-getauthrequired",
     }));
-  };
+  }, { once: true })
 
-  obs.onmessage = event => {
+  obs.addEventListener("message", async event => {
     const message = JSON.parse(event.data);
 
     if (message.hasOwnProperty("error")) {
-      obs.dispatchEvent(new ErrorEvent("error", { message: message.error }));
+      event.currentTarget.dispatchEvent(new ErrorEvent("error", { message: message.error }));
       return;
     }
 
     switch (message["message-id"]) {
       case "srscows-getauthrequired": {
         if (message.authRequired) {
-          hashPromise(`${form.pass.value}${message.salt}`).then(passsalt => {
-            hashPromise(`${buftoa(passsalt)}${message.challenge}`).then(auth => {
-              obs.send(JSON.stringify({
-                "request-type": "Authenticate",
-                "message-id": "srscows-authenticate",
-                auth: buftoa(auth),
-              }));
-            })
-          })
+          const auth = await digest(`${await digest(`${form.pass.value}${message.salt}`)}${message.challenge}`);
+          event.currentTarget.send(JSON.stringify({
+            "request-type": "Authenticate",
+            "message-id": "srscows-authenticate",
+            auth,
+          }));
         } else {
           afterConnected();
         }
@@ -242,19 +230,17 @@ const submit = event => {
 
       default: break;
     }
-  };
+  })
 
-  obs.onerror = event => {
-    isRunning = false;
+  obs.addEventListener("error", event => {
     toggleAll();
     output.textContent = `[ERROR] ${event.message ?? "OBS が起動していないか、ポート番号が間違っています。"}`;
     cleanup();
-  };
+  }, { once: true })
 };
 
 
 const cleanup = () => {
-  isRunning = false;
   recog.stop();
   clearTimeout(timeoutId);
   clearTimeout(translatedTimeoutId);
@@ -292,6 +278,6 @@ form.cancel.addEventListener("click", event => {
 
 window.addEventListener("unload", _ => {
   cleanup();
-  form.field.setAttlibute("disabled");
+  form.field.setAttribute("disabled");
   if (yukarinette) yukarinette.close();
 }, false);
