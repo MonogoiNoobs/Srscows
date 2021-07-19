@@ -28,10 +28,6 @@ export class EasyRecognition extends EventTarget {
       if (!this.hasRequestedEnding) event.currentTarget.start();
     });
 
-    this.recog.addEventListener("error", _ => {
-      if (this.isFinal) event.currentTarget.start();
-    });
-
     this.recog.addEventListener("result", event => {
       if (this.isTimeoutFired) {
         this.isTimeoutFired = false;
