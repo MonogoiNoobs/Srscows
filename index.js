@@ -164,7 +164,7 @@ const submit = async event => {
       });
 
     const chat = event => {
-      const built = `${event.data.name}${form.bouyomiChanTwitchHonorific.value}、${event.data.chat}`;
+      const built = encodeURIComponent(`${event.data.name}${form.bouyomiChanTwitchHonorific.value}、${event.data.chat}`);
       document.querySelector("#bcout").textContent = `棒読みちゃんへ送信: [${built}]`;
       fetch(`http://localhost:${form.bouyomiChanTwitchPort.value}/talk?text=${built}`, { mode: "no-cors" })
         .catch(_ => {
